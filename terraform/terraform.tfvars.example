@@ -1,0 +1,26 @@
+# Copy this file to terraform.tfvars and fill in your values
+
+# Required variables
+project_id = "your-gcp-project-id"
+region     = "us-central1"
+
+# Firestore configuration
+firestore_location    = "us-central"
+firestore_database_id = "storycraft-db"
+
+# Container image (update after building and pushing)
+container_image = "us-central1-docker.pkg.dev/your-gcp-project-id/storycraft/storycraft:latest"
+
+# NextAuth configuration
+nextauth_url    = "https://your-cloud-run-url"
+nextauth_secret = "your-nextauth-secret-key-here"
+
+# Access control
+allow_public_access = true
+
+# Additional environment variables (optional)
+additional_env_vars = {
+  # Add any additional environment variables your app needs
+  # "SOME_API_KEY" = "your-api-key"
+  # "CUSTOM_CONFIG" = "value"
+}
