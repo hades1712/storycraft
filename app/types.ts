@@ -11,7 +11,10 @@ export interface Scene {
 }
 
 export interface Scenario {
+  name: string;
+  pitch: string;
   scenario: string;
+  style: string;
   genre: string;
   mood: string;
   music: string;

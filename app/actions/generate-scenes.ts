@@ -7,7 +7,7 @@ import { Type } from '@google/genai';
 
 import { Scenario, Language } from "../types"
 
-export async function generateScenes(pitch: string, numScenes: number, style: string, language: Language) {
+export async function generateScenes(name: string, pitch: string, numScenes: number, style: string, language: Language) {
   try {
     const prompt = getScenarioPrompt(pitch, numScenes, style, language);
     console.log('Create a scenario')
@@ -32,9 +32,12 @@ export async function generateScenes(pitch: string, numScenes: number, style: st
       const parsedScenario = JSON.parse(text);
       console.log('json', parsedScenario)
 
-      // Ensure the language is set correctly
+      // Ensure the language is set correctly and add name, pitch, and style
       scenario = {
         ...parsedScenario,
+        name: name,
+        pitch: pitch,
+        style: style,
         language: {
           name: language.name,
           code: language.code

@@ -52,6 +52,8 @@ const LANGUAGES: Language[] = [
 ];
 
 interface CreateTabProps {
+  name: string
+  setName: (name: string) => void
   pitch: string
   setPitch: (pitch: string) => void
   numScenes: number
@@ -67,6 +69,8 @@ interface CreateTabProps {
 }
 
 export function CreateTab({
+  name,
+  setName,
   pitch,
   setPitch,
   numScenes,
@@ -85,7 +89,7 @@ export function CreateTab({
       <div className="flex justify-end">
         <Button
           onClick={onGenerate}
-          disabled={isLoading || pitch.trim() === ''}
+          disabled={isLoading || pitch.trim() === '' || name.trim() === ''}
           className="bg-primary text-primary-foreground hover:bg-primary/90"
         >
           {isLoading ? (
@@ -103,6 +107,13 @@ export function CreateTab({
       </div>
       <div className='max-w-xl mx-auto '>
         <div className="space-y-2">
+          <h2 className="text-xl font-semibold">Give your story a name</h2>
+          <Input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Enter story name..."
+            className="mb-4"
+          />
           <h2 className="text-xl font-semibold">Enter your story pitch</h2>
           <p className="text-muted-foreground">
             Describe your story idea and we&apos;ll generate a complete storyboard with scenes, descriptions, and voiceover text.

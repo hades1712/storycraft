@@ -1,6 +1,8 @@
 import { DM_Sans } from 'next/font/google'
+import ClientLayout from './client-layout'
 import './globals.css'
-import Providers from './providers'
+
+import { SessionProvider as NextAuthSessionProvider } from 'next-auth/react'
 
 const dmSans = DM_Sans({ 
   subsets: ['latin'],
@@ -20,7 +22,9 @@ export default function RootLayout({
   return (
     <html lang="en" className={dmSans.className}>
       <body>
-        <Providers>{children}</Providers>
+        <NextAuthSessionProvider>
+          <ClientLayout>{children}</ClientLayout>
+        </NextAuthSessionProvider>
       </body>
     </html>
   )

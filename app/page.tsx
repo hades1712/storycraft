@@ -1,7 +1,7 @@
 'use client'
 
 import { Stepper } from "@/components/ui/stepper"
-import { BookOpen, Film, LayoutGrid, PenLine, Scissors } from 'lucide-react'
+import { BookOpen, Film, LayoutGrid, Library, PenLine, Scissors } from 'lucide-react'
 import Image from 'next/image'
 import { useEffect, useState } from 'react'
 import { generateScenes, generateStoryboard } from './actions/generate-scenes'
@@ -19,6 +19,9 @@ import { EditorTab } from './components/editor/editor-tab'
 import { generateMusic } from "./actions/generate-music"
 import { generateVoiceover } from "./actions/generate-voiceover"
 import { Voice } from './components/editor/voice-selection-dialog'
+import { UserProfile } from "./components/user-profile"
+import { useScenario } from '@/hooks/use-scenario'
+import { StoriesTab } from './components/stories/stories-tab'
 
 const styles: Style[] = [
   { name: "Photographic", image: "/styles/cinematic.jpg" },
@@ -35,6 +38,7 @@ const DEFAULT_LANGUAGE: Language = {
 
 export default function Home() {
   const [pitch, setPitch] = useState('')
+  const [name, setName] = useState('')
   const [style, setStyle] = useState('Photographic')
   const [language, setLanguage] = useState<Language>(DEFAULT_LANGUAGE)
   const [logoOverlay, setLogoOverlay] = useState<string | null>(null)
@@ -50,23 +54,34 @@ export default function Home() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [videoUri, setVideoUri] = useState<string | null>(null)
   const [vttUri, setVttUri] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<string>("create")
+  const [activeTab, setActiveTab] = useState<string>("stories")
   const [currentTime, setCurrentTime] = useState(0)
   const [isGeneratingMusic, setIsGeneratingMusic] = useState(false)
   const [isGeneratingVoiceover, setIsGeneratingVoiceover] = useState(false)
   const [selectedVoice, setSelectedVoice] = useState<Voice | null>(null)
   const FALLBACK_URL = "https://videos.pexels.com/video-files/4276282/4276282-hd_1920_1080_25fps.mp4"
 
+  // Scenario auto-save functionality
+  const { saveScenarioDebounced, getCurrentScenarioId, setCurrentScenarioId, isAuthenticated } = useScenario()
+
   useEffect(() => {
     console.log("generatingScenes (in useEffect):", generatingScenes);
   }, [generatingScenes]); // Log only when generatingScenes changes
+
+  // Auto-save scenario whenever it changes (debounced)
+  useEffect(() => {
+    if (scenario && isAuthenticated) {
+      console.log('Auto-saving scenario to Firestore...')
+      saveScenarioDebounced(scenario, getCurrentScenarioId() || undefined)
+    }
+  }, [scenario, isAuthenticated, saveScenarioDebounced, getCurrentScenarioId])
 
   const handleGenerate = async () => {
     if (pitch.trim() === '' || numScenes < 1) return
     setIsLoading(true)
     setErrorMessage(null)
     try {
-      const scenario = await generateScenes(pitch, numScenes, style, language)
+      const scenario = await generateScenes(name, pitch, numScenes, style, language)
       setScenario(scenario)
       if (logoOverlay) {
         scenario.logoOverlay = logoOverlay
@@ -137,49 +152,6 @@ export default function Home() {
         updated.delete(characterIndex);
         return updated;
       });
-    }
-  }
-
-  const handleEditVideo = async () => {
-    setIsVideoLoading(true)
-    setErrorMessage(null)
-    try {
-      console.log('Edit Video');
-      console.log(withVoiceOver);
-      if (scenario && scenes && scenes.every((scene) => typeof scene.videoUri === 'string')) {
-        const result = await editVideo(
-          await Promise.all(
-            scenes.map(async (scene) => {
-              return {
-                voiceover: scene.voiceover,
-                videoUri: scene.videoUri,
-              };
-            })
-          ),
-          scenario.mood,
-          withVoiceOver,
-          scenario.language,
-          scenario.logoOverlay,
-          selectedVoice?.name
-        );
-        if (result.success) {
-          setVideoUri(result.videoUrl)
-          setVttUri(result.vttUrl || null)
-        } else {
-          setVideoUri(FALLBACK_URL)
-          setVttUri(null)
-        }
-      } else {
-        setErrorMessage("All scenes should have a generated video")
-        setVideoUri(FALLBACK_URL)
-        setVttUri(null)
-      }
-    } catch (error) {
-      console.error("Error generating video:", error)
-      setErrorMessage(error instanceof Error ? error.message : "An unknown error occurred while generating video")
-      setVttUri(null)
-    } finally {
-      setIsVideoLoading(false)
     }
   }
 
@@ -466,6 +438,11 @@ export default function Home() {
 
   const steps = [
     {
+      id: "stories",
+      label: "Stories",
+      icon: Library
+    },
+    {
       id: "create",
       label: "Create",
       icon: PenLine
@@ -498,6 +475,74 @@ export default function Home() {
 
   const handleScenarioUpdate = (updatedScenario: Scenario) => {
     setScenario(updatedScenario);
+  };
+
+  const handleSelectScenario = (selectedScenario: Scenario, scenarioId?: string) => {
+    // Set the scenario ID from Firestore for future saves
+    if (scenarioId) {
+      setCurrentScenarioId(scenarioId);
+    }
+    
+    // Load the existing scenario data
+    setScenario(selectedScenario);
+    setScenes(selectedScenario.scenes);
+    
+    // Populate form fields with existing data
+    setName(selectedScenario.name || '');
+    setPitch(selectedScenario.pitch || '');
+    setStyle(selectedScenario.style || 'Photographic');
+    setLanguage(selectedScenario.language || DEFAULT_LANGUAGE);
+    setNumScenes(selectedScenario.scenes?.length || 6);
+    setLogoOverlay(selectedScenario.logoOverlay || null);
+    
+    // Set video URI if it exists (for scenarios that have completed video generation)
+    const hasVideoUri = selectedScenario.scenes && 
+      selectedScenario.scenes.some(scene => typeof scene.videoUri === 'string');
+    
+    if (hasVideoUri) {
+      // Find the first scene with a video URI to set as the main video
+      const sceneWithVideo = selectedScenario.scenes.find(scene => typeof scene.videoUri === 'string');
+      if (sceneWithVideo && typeof sceneWithVideo.videoUri === 'string') {
+        setVideoUri(sceneWithVideo.videoUri);
+      }
+    }
+    
+    // Check if all scenes have videos to determine which tab to show
+    const allScenesHaveVideos = selectedScenario.scenes && 
+      selectedScenario.scenes.length > 0 && 
+      selectedScenario.scenes.every(scene => typeof scene.videoUri === 'string');
+    
+    // Navigate to the appropriate tab based on the scenario's progress
+    if (allScenesHaveVideos) {
+      setActiveTab("editor"); // If videos are ready, go to editor
+    } else if (selectedScenario.scenes && selectedScenario.scenes.length > 0) {
+      setActiveTab("storyboard"); // If scenes exist, go to storyboard
+    } else {
+      setActiveTab("scenario"); // Otherwise, go to scenario
+    }
+  };
+
+  const handleCreateNewStory = () => {
+    // Reset all state for a new story
+    setScenario(undefined);
+    setScenes([]);
+    setPitch('');
+    setStyle('Photographic');
+    setLanguage(DEFAULT_LANGUAGE);
+    setLogoOverlay(null);
+    setNumScenes(6);
+    setWithVoiceOver(false);
+    setErrorMessage(null);
+    setVideoUri(null);
+    setVttUri(null);
+    setCurrentTime(0);
+    setSelectedVoice(null);
+    
+    // Clear the current scenario ID so a new one will be generated
+    setCurrentScenarioId(null);
+    
+    // Navigate to the create tab
+    setActiveTab("create");
   };
 
   const handleRemoveVoiceover = (sceneIndex: number) => {
@@ -534,17 +579,20 @@ export default function Home() {
 
   return (
     <main className="container mx-auto p-8 min-h-screen bg-background flex flex-col">
-      <div className="flex items-center justify-center gap-2 mb-8">
-        <Image
-          src="/logo5.png"
-          alt="Storycraft"
-          width={32}
-          height={32}
-          className="h-8"
-        />
-        <h1 className="text-3xl font-bold text-primary ml-[-10px]">
-          toryCraft
-        </h1>
+      <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center gap-2">
+          <Image
+            src="/logo5.png"
+            alt="Storycraft"
+            width={32}
+            height={32}
+            className="h-8"
+          />
+          <h1 className="text-3xl font-bold text-primary ml-[-10px]">
+            toryCraft
+          </h1>
+        </div>
+        <UserProfile isCollapsed={false} />
       </div>
       <div className="flex-1 space-y-4">
         <Stepper
@@ -554,8 +602,17 @@ export default function Home() {
           className="mb-8"
         />
 
+        {activeTab === "stories" && (
+          <StoriesTab 
+            onSelectScenario={handleSelectScenario} 
+            onCreateNewStory={handleCreateNewStory}
+          />
+        )}
+
         {activeTab === "create" && (
           <CreateTab
+            name={name}
+            setName={setName}
             pitch={pitch}
             setPitch={setPitch}
             numScenes={numScenes}
