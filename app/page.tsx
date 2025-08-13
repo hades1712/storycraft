@@ -1,27 +1,27 @@
 'use client'
 
 import { Stepper } from "@/components/ui/stepper"
+import { useScenario } from '@/hooks/use-scenario'
 import { BookOpen, Film, LayoutGrid, Library, PenLine, Scissors } from 'lucide-react'
 import Image from 'next/image'
 import { useEffect, useState } from 'react'
-import { generateScenes, generateStoryboard } from './actions/generate-scenes'
-import { editVideo, exportMovieAction } from './actions/generate-video'
-import { regenerateImage, regenerateCharacterImage } from './actions/regenerate-image'
+import { generateMusic } from "./actions/generate-music"
+import { generateScenario, generateStoryboard } from './actions/generate-scenes'
+import { exportMovieAction } from './actions/generate-video'
+import { generateVoiceover } from "./actions/generate-voiceover"
+import { regenerateCharacterImage, regenerateImage } from './actions/regenerate-image'
 import { resizeImage } from './actions/resize-image'
 import { saveImageToPublic } from './actions/upload-image'
 import { CreateTab } from './components/create/create-tab'
-import { ScenarioTab } from "./components/scenario/scenario-tab"
-import { StoryboardTab } from './components/storyboard/storyboard-tab'
 import { type Style } from "./components/create/style-selector"
-import { VideoTab } from './components/video/video-tab'
-import { Scenario, Scene, type Language, TimelineLayer } from './types'
 import { EditorTab } from './components/editor/editor-tab'
-import { generateMusic } from "./actions/generate-music"
-import { generateVoiceover } from "./actions/generate-voiceover"
 import { Voice } from './components/editor/voice-selection-dialog'
-import { UserProfile } from "./components/user-profile"
-import { useScenario } from '@/hooks/use-scenario'
+import { ScenarioTab } from "./components/scenario/scenario-tab"
 import { StoriesTab } from './components/stories/stories-tab'
+import { StoryboardTab } from './components/storyboard/storyboard-tab'
+import { UserProfile } from "./components/user-profile"
+import { VideoTab } from './components/video/video-tab'
+import { Scenario, Scene, TimelineLayer, type Language } from './types'
 
 const styles: Style[] = [
   { name: "Photographic", image: "/styles/cinematic.jpg" },
@@ -48,7 +48,6 @@ export default function Home() {
   const [withVoiceOver, setWithVoiceOver] = useState(false)
   const [isVideoLoading, setIsVideoLoading] = useState(false)
   const [scenario, setScenario] = useState<Scenario>()
-  const [scenes, setScenes] = useState<Array<Scene>>([])
   const [generatingScenes, setGeneratingScenes] = useState<Set<number>>(new Set());
   const [generatingCharacterImages, setGeneratingCharacterImages] = useState<Set<number>>(new Set());
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
@@ -81,33 +80,36 @@ export default function Home() {
     setIsLoading(true)
     setErrorMessage(null)
     try {
-      const scenario = await generateScenes(name, pitch, numScenes, style, language)
+      const scenario = await generateScenario(name, pitch, numScenes, style, language)
       setScenario(scenario)
       if (logoOverlay) {
         scenario.logoOverlay = logoOverlay
       }
-      setScenes(scenario.scenes)
       setActiveTab("scenario") // Switch to scenario tab after successful generation
     } catch (error) {
       console.error('Error generating scenes:', error)
       setErrorMessage(error instanceof Error ? error.message : 'An unknown error occurred while generating scenes')
-      setScenes([]) // Clear any partially generated scenes
     } finally {
       setIsLoading(false)
     }
   }
 
   const handleRegenerateImage = async (index: number) => {
+    if (!scenario) return;
+    
     setGeneratingScenes(prev => new Set([...prev, index]));
     setErrorMessage(null)
     try {
       // Regenerate a single image
-      const scene = scenes[index]
+      const scene = scenario.scenes[index]
       const { imageGcsUri, errorMessage } = await regenerateImage(scene.imagePrompt)
-      const updatedScenes = [...scenes]
+      const updatedScenes = [...scenario.scenes]
       updatedScenes[index] = { ...scene, imageGcsUri, videoUri: undefined, errorMessage: errorMessage }
       console.log(updatedScenes)
-      setScenes(updatedScenes)
+      setScenario({
+        ...scenario,
+        scenes: updatedScenes
+      })
     } catch (error) {
       console.error("Error regenerating images:", error)
       setErrorMessage(`Failed to regenerate image(s): ${error instanceof Error ? error.message : "Unknown error"}`)
@@ -182,12 +184,13 @@ export default function Home() {
   }
 
   const handleGenerateAllVideos = async () => {
+    if (!scenario) return;
     setErrorMessage(null);
     console.log("[Client] Generating videos for all scenes - START");
-    setGeneratingScenes(new Set(scenes.map((_, i) => i)));
+    setGeneratingScenes(new Set(scenario?.scenes.map((_, i) => i)));
 
     const regeneratedScenes = await Promise.all(
-      scenes.map(async (scene) => {
+      scenario.scenes.map(async (scene) => {
         try {
           const response = await fetch('/api/videos', {
             method: 'POST',
@@ -213,13 +216,10 @@ export default function Home() {
       })
     );
 
-    setScenes(regeneratedScenes);
-    if (scenario) {
-      setScenario({
-        ...scenario,
-        scenes: regeneratedScenes
-      });
-    }
+    setScenario({
+      ...scenario,
+      scenes: regeneratedScenes
+    });
     setGeneratingScenes(new Set());
     setActiveTab("editor")
   };
@@ -238,11 +238,10 @@ export default function Home() {
         voiceover: scene.voiceover
       }))
       const voiceoverAudioUrls = await generateVoiceover(scenesVoiceovers, scenario.language, voice?.name)
-      const updatedScenes = scenes.map((scene, index) => ({
+      const updatedScenes = scenario.scenes.map((scene, index) => ({
         ...scene,
         voiceoverAudioUri: voiceoverAudioUrls[index]
       }))
-      setScenes(updatedScenes)
       setScenario({
         ...scenario,
         scenes: updatedScenes // Update scenario with the new scenes that include voiceover URLs
@@ -294,12 +293,10 @@ export default function Home() {
     try {
       const scenarioWithStoryboard = await generateStoryboard(scenario, numScenes, style, language)
       setScenario(scenarioWithStoryboard)
-      setScenes(scenarioWithStoryboard.scenes)
       setActiveTab("storyboard") // Switch to storyboard tab after successful generation
     } catch (error) {
       console.error('Error generating storyboard:', error)
       setErrorMessage(error instanceof Error ? error.message : 'An unknown error occurred while generating storyboard')
-      setScenes([]) // Clear any partially generated scenes
       setActiveTab("scenario") // Stay on scenario tab if there's an error
     } finally {
       setIsLoading(false)
@@ -307,11 +304,12 @@ export default function Home() {
   }
 
   const handleGenerateVideo = async (index: number) => {
+    if (!scenario) return;
     setErrorMessage(null);
     try {
       // Single scene generation logic remains the same
       setGeneratingScenes(prev => new Set([...prev, index]));
-      const scene = scenes[index];
+      const scene = scenario.scenes[index];
       console.log('scene', scene);
 
       const response = await fetch('/api/videos', {
@@ -322,15 +320,12 @@ export default function Home() {
 
       const { success, videoUrls } = await response.json();
       const videoUri = success ? videoUrls[0] : FALLBACK_URL;
-      const updatedScenes = [...scenes]
+      const updatedScenes = [...scenario.scenes]
       updatedScenes[index] = { ...updatedScenes[index], videoUri }
-      setScenes(updatedScenes)
-      if (scenario) {
-        setScenario({
-          ...scenario,
-          scenes: updatedScenes
-        });
-      }
+      setScenario({
+        ...scenario,
+        scenes: updatedScenes
+      });
     } catch (error) {
       console.error("[Client] Error generating video:", error);
       setErrorMessage(
@@ -340,9 +335,11 @@ export default function Home() {
       );
 
       const videoUri = FALLBACK_URL;
-      setScenes(prevScenes =>
-        prevScenes.map((s, i) => (i === index ? { ...s, videoUri } : s))
-      );
+      const updatedScenes = scenario.scenes.map((s, i) => (i === index ? { ...s, videoUri } : s));
+      setScenario({
+        ...scenario,
+        scenes: updatedScenes
+      });
     } finally {
       console.log(`[Client] Generating video done`);
       setGeneratingScenes(prev => {
@@ -354,9 +351,13 @@ export default function Home() {
   };
 
   const handleUpdateScene = (index: number, updatedScene: Scene) => {
-    const newScenes = [...scenes]
+    if (!scenario) return;
+    const newScenes = [...scenario.scenes]
     newScenes[index] = updatedScene
-    setScenes(newScenes)
+    setScenario({
+      ...scenario,
+      scenes: newScenes
+    })
   };
 
   const handleUploadImage = async (index: number, file: File) => {
@@ -367,9 +368,12 @@ export default function Home() {
         const base64String = reader.result as string
         const imageBase64 = base64String.split(",")[1] // Remove the data URL prefix
         const resizedImageGcsUri = await resizeImage(imageBase64);
-        const updatedScenes = [...scenes]
+        const updatedScenes = [...scenario!.scenes]
         updatedScenes[index] = { ...updatedScenes[index], imageGcsUri: resizedImageGcsUri, videoUri: undefined }
-        setScenes(updatedScenes)
+        setScenario({
+          ...scenario!,
+          scenes: updatedScenes
+        })
       }
       reader.onerror = () => {
         throw new Error("Failed to read the image file")
@@ -463,13 +467,13 @@ export default function Home() {
       id: "editor",
       label: "Editor",
       icon: Scissors,
-      disabled: !scenario || !scenes || !scenes.every(scene => typeof scene.videoUri === 'string')
+      disabled: !scenario || !scenario.scenes || !scenario.scenes.every(scene => scene.videoUri)
     },
     {
       id: "video",
       label: "Video",
       icon: Film,
-      disabled: !scenario || !scenes || !scenes.every(scene => typeof scene.videoUri === 'string')
+      disabled: !scenario || !scenario.scenes || !scenario.scenes.every(scene => scene.videoUri)
     }
   ]
 
@@ -485,7 +489,6 @@ export default function Home() {
     
     // Load the existing scenario data
     setScenario(selectedScenario);
-    setScenes(selectedScenario.scenes);
     
     // Populate form fields with existing data
     setName(selectedScenario.name || '');
@@ -495,22 +498,10 @@ export default function Home() {
     setNumScenes(selectedScenario.scenes?.length || 6);
     setLogoOverlay(selectedScenario.logoOverlay || null);
     
-    // Set video URI if it exists (for scenarios that have completed video generation)
-    const hasVideoUri = selectedScenario.scenes && 
-      selectedScenario.scenes.some(scene => typeof scene.videoUri === 'string');
-    
-    if (hasVideoUri) {
-      // Find the first scene with a video URI to set as the main video
-      const sceneWithVideo = selectedScenario.scenes.find(scene => typeof scene.videoUri === 'string');
-      if (sceneWithVideo && typeof sceneWithVideo.videoUri === 'string') {
-        setVideoUri(sceneWithVideo.videoUri);
-      }
-    }
-    
     // Check if all scenes have videos to determine which tab to show
     const allScenesHaveVideos = selectedScenario.scenes && 
       selectedScenario.scenes.length > 0 && 
-      selectedScenario.scenes.every(scene => typeof scene.videoUri === 'string');
+      selectedScenario.scenes.every(scene => scene.videoUri);
     
     // Navigate to the appropriate tab based on the scenario's progress
     if (allScenesHaveVideos) {
@@ -525,7 +516,6 @@ export default function Home() {
   const handleCreateNewStory = () => {
     // Reset all state for a new story
     setScenario(undefined);
-    setScenes([]);
     setPitch('');
     setStyle('Photographic');
     setLanguage(DEFAULT_LANGUAGE);
@@ -559,8 +549,7 @@ export default function Home() {
       return scene;
     });
     
-    // Update both scenes and scenario
-    setScenes(updatedScenes);
+    // Update scenario with updated scenes
     setScenario({
       ...scenario,
       scenes: updatedScenes
@@ -639,9 +628,9 @@ export default function Home() {
           />
         )}
 
-        {activeTab === "storyboard" && (
+        {activeTab === "storyboard" && scenario && (
           <StoryboardTab
-            scenes={scenes}
+            scenario={scenario}
             isVideoLoading={isVideoLoading}
             generatingScenes={generatingScenes}
             errorMessage={errorMessage}

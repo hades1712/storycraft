@@ -5,7 +5,7 @@ export interface Scene {
   voiceover: string;
   charactersPresent: string[];
   imageGcsUri?: string;
-  videoUri?: string | Promise<string>;
+  videoUri?: string;
   voiceoverAudioUri?: string | Promise<string>;
   errorMessage?: string;
 }

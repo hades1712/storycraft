@@ -4,14 +4,14 @@ import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { Grid, List, Loader2, Presentation, Video, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useState } from 'react'
-import { Scene } from "../../types"
+import { Scene, Scenario } from "../../types"
 import { SceneData } from './scene-data'
 import { GcsImage } from '../ui/gcs-image'
 
 type ViewMode = 'grid' | 'list' | 'slideshow'
 
 interface StoryboardTabProps {
-  scenes: Scene[]
+  scenario: Scenario
   isVideoLoading: boolean
   generatingScenes: Set<number>
   errorMessage: string | null
@@ -23,7 +23,7 @@ interface StoryboardTabProps {
 }
 
 export function StoryboardTab({
-  scenes,
+  scenario,
   isVideoLoading,
   generatingScenes,
   errorMessage,
@@ -33,6 +33,7 @@ export function StoryboardTab({
   onGenerateVideo,
   onUploadImage,
 }: StoryboardTabProps) {
+  const scenes = scenario.scenes
   const [viewMode, setViewMode] = useState<ViewMode>('grid')
   const [currentSlide, setCurrentSlide] = useState(0)
 
@@ -78,15 +79,15 @@ export function StoryboardTab({
                     <div className="space-y-4">
                       <div>
                         <h4 className="text-sm font-medium text-card-foreground mb-1">Image Prompt</h4>
-                        <p className="text-sm text-card-foreground/80">{scene.imagePrompt}</p>
+                        <p className="text-sm text-card-foreground/80 whitespace-pre-wrap">{scene.imagePrompt}</p>
                       </div>
                       <div>
                         <h4 className="text-sm font-medium text-card-foreground mb-1">Video Prompt</h4>
-                        <p className="text-sm text-card-foreground/80">{scene.videoPrompt}</p>
+                        <p className="text-sm text-card-foreground/80 whitespace-pre-wrap">{scene.videoPrompt}</p>
                       </div>
                       <div>
                         <h4 className="text-sm font-medium text-card-foreground mb-1">Voiceover</h4>
-                        <p className="text-sm text-card-foreground/80">{scene.voiceover}</p>
+                        <p className="text-sm text-card-foreground/80 whitespace-pre-wrap">{scene.voiceover}</p>
                       </div>
                     </div>
                   </div>

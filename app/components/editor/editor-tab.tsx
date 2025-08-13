@@ -1,14 +1,13 @@
+import { TimelineLayer } from '@/app/types'
 import { Button } from '@/components/ui/button'
-import { Upload, Film, Loader2, X } from 'lucide-react'
+import { Film, Loader2, X } from 'lucide-react'
 import Image from 'next/image'
 import { useEffect, useRef, useState } from 'react'
 import { Scenario, TimelineItem } from '../../types'
 import { AudioWaveform } from './audio-wave-form'
+import { MusicParams, MusicSelectionDialog } from './music-selection-dialog'
 import { VideoThumbnail } from './video-thumbnail'
-import { exportMovieAction } from '@/app/actions/generate-video'
-import { TimelineLayer } from '@/app/types'
-import { VoiceSelectionDialog, Voice } from './voice-selection-dialog'
-import { MusicSelectionDialog, MusicParams } from './music-selection-dialog'
+import { Voice, VoiceSelectionDialog } from './voice-selection-dialog'
 
 interface EditorTabProps {
     scenario: Scenario
@@ -189,14 +188,10 @@ export function EditorTab({
                     const scene = scenario.scenes[i]
                     if (scene.videoUri) {
                         try {
-                            const url = typeof scene.videoUri === 'string'
-                                ? scene.videoUri
-                                : await scene.videoUri
-
                             // Update the video layer item content directly
                             const videoItem = videoLayer.items[i]
                             if (videoItem) {
-                                videoItem.content = url
+                                videoItem.content = scene.videoUri
                             }
                         } catch (error) {
                             console.error(`Error resolving video URL for scene ${i}:`, error)

@@ -1,13 +1,13 @@
 'use server'
 
 import { generateImageCustomizationRest, generateImageRest } from '@/lib/imagen';
-import { getScenarioPrompt, getScenesPrompt } from '@/app/prompts';
+import { getScenarioPrompt, getScenesPrompt2 } from '@/app/prompts';
 import { generateText } from '@/lib/gemini'
 import { Type } from '@google/genai';
 
 import { Scenario, Language } from "../types"
 
-export async function generateScenes(name: string, pitch: string, numScenes: number, style: string, language: Language) {
+export async function generateScenario(name: string, pitch: string, numScenes: number, style: string, language: Language) {
   try {
     const prompt = getScenarioPrompt(pitch, numScenes, style, language);
     console.log('Create a scenario')
@@ -87,7 +87,7 @@ export async function generateStoryboard(scenario: Scenario, numScenes: number, 
       scenes: []
     };
 
-    const prompt = getScenesPrompt(scenario, numScenes, style, language)
+    const prompt = getScenesPrompt2(scenario, numScenes, style, language)
     const text = await generateText(
       prompt,
       {

@@ -17,7 +17,7 @@ interface EditSceneModalProps {
     voiceover: string;
     charactersPresent: string[];
     imageGcsUri?: string;
-    videoUri?: string | Promise<string>;
+    videoUri?: string;
   };
   sceneNumber: number;
   onUpdate: (updatedScene: EditSceneModalProps['scene']) => void;
@@ -26,29 +26,20 @@ interface EditSceneModalProps {
 export function EditSceneModal({ isOpen, onClose, scene, sceneNumber, onUpdate }: EditSceneModalProps) {
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [editedScene, setEditedScene] = useState(scene)
-  
+
   useEffect(() => {
     setEditedScene(scene)
   }, [scene])
-    
+
   useEffect(() => {
     const getVideoUrl = async () => {
-        if (typeof scene.videoUri === 'string') {
-          setVideoUrl(scene.videoUri);
-        } else if (scene.videoUri instanceof Promise) {
-          try {
-            const resolvedUrl = await scene.videoUri;
-            setVideoUrl(resolvedUrl);
-          } catch (error) {
-            console.error('Error resolving video URL:', error);
-            setVideoUrl(null);
-          }
-        }
+      if (scene.videoUri) {
+        setVideoUrl(scene.videoUri);
+      }
     }
-
     getVideoUrl();
   }, [scene.videoUri]);
-  
+
   const handleSave = () => {
     onUpdate(editedScene)
     onClose()
@@ -77,7 +68,7 @@ export function EditSceneModal({ isOpen, onClose, scene, sceneNumber, onUpdate }
               )}
             </div>
           </div>
-          
+
           {/* Right side - Scene Parameters */}
           <div className="lg:col-span-2 space-y-4">
             <div className="grid gap-2">
@@ -92,7 +83,7 @@ export function EditSceneModal({ isOpen, onClose, scene, sceneNumber, onUpdate }
                 rows={4}
               />
             </div>
-            
+
             <div className="grid gap-2">
               <label htmlFor="videoPrompt" className="text-sm font-medium">
                 Video Prompt
@@ -105,7 +96,7 @@ export function EditSceneModal({ isOpen, onClose, scene, sceneNumber, onUpdate }
                 rows={3}
               />
             </div>
-            
+
             <div className="grid gap-2">
               <label htmlFor="description" className="text-sm font-medium">
                 Description
@@ -118,7 +109,7 @@ export function EditSceneModal({ isOpen, onClose, scene, sceneNumber, onUpdate }
                 rows={3}
               />
             </div>
-            
+
             <div className="grid gap-2">
               <label htmlFor="voiceover" className="text-sm font-medium">
                 Voiceover
@@ -131,13 +122,13 @@ export function EditSceneModal({ isOpen, onClose, scene, sceneNumber, onUpdate }
                 rows={3}
               />
             </div>
-            
+
             <div className="grid gap-2">
               <label htmlFor="characters" className="text-sm font-medium">
                 Characters Present
               </label>
               <div className="text-sm text-muted-foreground p-2 bg-muted rounded">
-                {editedScene.charactersPresent.length > 0 
+                {editedScene.charactersPresent.length > 0
                   ? editedScene.charactersPresent.join(", ")
                   : "No characters in this scene"
                 }
