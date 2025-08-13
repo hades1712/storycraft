@@ -7,7 +7,7 @@ import { Type } from '@google/genai';
 
 import { Scenario, Language } from "../types"
 
-export async function generateScenario(name: string, pitch: string, numScenes: number, style: string, language: Language) {
+export async function generateScenario(name: string, pitch: string, numScenes: number, style: string, language: Language): Promise<Scenario> {
   try {
     const prompt = getScenarioPrompt(pitch, numScenes, style, language);
     console.log('Create a scenario')
