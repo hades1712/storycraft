@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Loader2, Pencil, RefreshCw, Upload, Video } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
-import { Scene } from '../../types'
+import { Scene, Scenario } from '../../types'
 import { EditSceneModal } from './edit-scene-modal'
 import { VideoPlayer } from "../video/video-player"
 import { GcsImage } from "../ui/gcs-image"
@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils"
 interface SceneDataProps {
   scene: Scene;
   sceneNumber: number;
+  scenario: Scenario;
   onUpdate: (updatedScene: SceneDataProps['scene']) => void;
   onRegenerateImage: () => void;
   onGenerateVideo: () => void;
@@ -24,6 +25,7 @@ interface SceneDataProps {
 export function SceneData({
   scene,
   sceneNumber,
+  scenario,
   onUpdate,
   onRegenerateImage,
   onGenerateVideo,
@@ -144,6 +146,7 @@ export function SceneData({
         onClose={() => setIsEditModalOpen(false)}
         scene={scene}
         sceneNumber={sceneNumber}
+        scenario={scenario}
         onUpdate={onUpdate}
       />
     </Card>

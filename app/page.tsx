@@ -9,7 +9,7 @@ import { generateMusic } from "./actions/generate-music"
 import { generateScenario, generateStoryboard } from './actions/generate-scenes'
 import { exportMovieAction } from './actions/generate-video'
 import { generateVoiceover } from "./actions/generate-voiceover"
-import { regenerateCharacterImage, regenerateImage } from './actions/regenerate-image'
+
 import { resizeImage } from './actions/resize-image'
 import { saveImageToPublic } from './actions/upload-image'
 import { CreateTab } from './components/create/create-tab'
@@ -22,6 +22,7 @@ import { StoryboardTab } from './components/storyboard/storyboard-tab'
 import { UserProfile } from "./components/user-profile"
 import { VideoTab } from './components/video/video-tab'
 import { Scenario, Scene, TimelineLayer, type Language } from './types'
+import { imagePromptToString } from "@/lib/prompt-utils"
 
 const styles: Style[] = [
   { name: "Photographic", image: "/styles/cinematic.jpg" },
@@ -102,13 +103,38 @@ export default function Home() {
     try {
       // Regenerate a single image
       const scene = scenario.scenes[index]
-      const { imageGcsUri, errorMessage } = await regenerateImage(scene.imagePrompt)
-      const updatedScenes = [...scenario.scenes]
-      updatedScenes[index] = { ...scene, imageGcsUri, videoUri: undefined, errorMessage: errorMessage }
-      console.log(updatedScenes)
-      setScenario({
-        ...scenario,
-        scenes: updatedScenes
+      
+      const response = await fetch('/api/regenerate-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: imagePromptToString(scene.imagePrompt),
+      })
+      
+      const result = await response.json()
+      
+      if (!result.success) {
+        throw new Error(result.errorMessage || result.error || 'Failed to regenerate image')
+      }
+      
+      const { imageGcsUri } = result
+      const errorMessage = result.errorMessage
+      
+      // Use state updater function to work with current state
+      setScenario(currentScenario => {
+        if (!currentScenario) return currentScenario;
+        
+        const updatedScenes = [...currentScenario.scenes]
+        updatedScenes[index] = { 
+          ...updatedScenes[index], 
+          imageGcsUri, 
+          videoUri: undefined, 
+          errorMessage: errorMessage 
+        }
+        
+        return {
+          ...currentScenario,
+          scenes: updatedScenes
+        }
       })
     } catch (error) {
       console.error("Error regenerating images:", error)
@@ -122,14 +148,33 @@ export default function Home() {
     }
   }
 
-  const handleRegenerateCharacterImage = async (characterIndex: number, description: string) => {
+  const handleRegenerateCharacterImage = async (characterIndex: number, name: string, description: string) => {
     if (!scenario) return;
     
     setGeneratingCharacterImages(prev => new Set([...prev, characterIndex]));
     setErrorMessage(null)
     try {
       // Regenerate character image using the updated description
-      const { imageGcsUri } = await regenerateCharacterImage(`${style}: ${description}`);
+      const orderedPrompt = {
+        style: style,
+        name: name,
+        shot_type: "Full Shot",
+        description: description,
+      };
+      
+      const response = await fetch('/api/regenerate-image', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: JSON.stringify(orderedPrompt, null, 4) }),
+      })
+      
+      const result = await response.json()
+      
+      if (!result.success) {
+        throw new Error(result.errorMessage || result.error || 'Failed to regenerate character image')
+      }
+      
+      const { imageGcsUri } = result
       
       // Update the character with the new image AND the updated description
       const updatedCharacters = [...scenario.characters];
@@ -320,11 +365,18 @@ export default function Home() {
 
       const { success, videoUrls } = await response.json();
       const videoUri = success ? videoUrls[0] : FALLBACK_URL;
-      const updatedScenes = [...scenario.scenes]
-      updatedScenes[index] = { ...updatedScenes[index], videoUri }
-      setScenario({
-        ...scenario,
-        scenes: updatedScenes
+      
+      // Use state updater function to work with current state
+      setScenario(currentScenario => {
+        if (!currentScenario) return currentScenario;
+        
+        const updatedScenes = [...currentScenario.scenes]
+        updatedScenes[index] = { ...updatedScenes[index], videoUri }
+        
+        return {
+          ...currentScenario,
+          scenes: updatedScenes
+        }
       });
     } catch (error) {
       console.error("[Client] Error generating video:", error);
@@ -335,10 +387,17 @@ export default function Home() {
       );
 
       const videoUri = FALLBACK_URL;
-      const updatedScenes = scenario.scenes.map((s, i) => (i === index ? { ...s, videoUri } : s));
-      setScenario({
-        ...scenario,
-        scenes: updatedScenes
+      
+      // Use state updater function to work with current state
+      setScenario(currentScenario => {
+        if (!currentScenario) return currentScenario;
+        
+        const updatedScenes = currentScenario.scenes.map((s, i) => (i === index ? { ...s, videoUri } : s));
+        
+        return {
+          ...currentScenario,
+          scenes: updatedScenes
+        }
       });
     } finally {
       console.log(`[Client] Generating video done`);
@@ -352,11 +411,18 @@ export default function Home() {
 
   const handleUpdateScene = (index: number, updatedScene: Scene) => {
     if (!scenario) return;
-    const newScenes = [...scenario.scenes]
-    newScenes[index] = updatedScene
-    setScenario({
-      ...scenario,
-      scenes: newScenes
+    
+    // Use state updater function to work with current state
+    setScenario(currentScenario => {
+      if (!currentScenario) return currentScenario;
+      
+      const newScenes = [...currentScenario.scenes]
+      newScenes[index] = updatedScene
+      
+      return {
+        ...currentScenario,
+        scenes: newScenes
+      }
     })
   };
 
@@ -368,11 +434,18 @@ export default function Home() {
         const base64String = reader.result as string
         const imageBase64 = base64String.split(",")[1] // Remove the data URL prefix
         const resizedImageGcsUri = await resizeImage(imageBase64);
-        const updatedScenes = [...scenario!.scenes]
-        updatedScenes[index] = { ...updatedScenes[index], imageGcsUri: resizedImageGcsUri, videoUri: undefined }
-        setScenario({
-          ...scenario!,
-          scenes: updatedScenes
+        
+        // Use state updater function to work with current state
+        setScenario(currentScenario => {
+          if (!currentScenario) return currentScenario;
+          
+          const updatedScenes = [...currentScenario.scenes]
+          updatedScenes[index] = { ...updatedScenes[index], imageGcsUri: resizedImageGcsUri, videoUri: undefined }
+          
+          return {
+            ...currentScenario,
+            scenes: updatedScenes
+          }
         })
       }
       reader.onerror = () => {

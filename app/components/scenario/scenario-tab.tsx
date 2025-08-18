@@ -12,7 +12,7 @@ interface ScenarioTabProps {
     onGenerateStoryBoard: () => void;
     isLoading: boolean;
     onScenarioUpdate?: (updatedScenario: Scenario) => void;
-    onRegenerateCharacterImage?: (characterIndex: number, description: string) => Promise<void>;
+    onRegenerateCharacterImage?: (characterIndex: number, name: string, description: string) => Promise<void>;
     generatingCharacterImages?: Set<number>;
 }
 
@@ -110,7 +110,7 @@ export function ScenarioTab({ scenario, onGenerateStoryBoard, isLoading, onScena
             onScenarioUpdate(updatedScenario);
             
             // Regenerate image with the updated description
-            await onRegenerateCharacterImage(index, updatedDescription);
+            await onRegenerateCharacterImage(index, updatedCharacters[index].name, updatedDescription);
         }
         setEditingCharacterIndex(null);
     };

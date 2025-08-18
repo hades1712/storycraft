@@ -1,3 +1,5 @@
+import { ImagePrompt, VideoPrompt } from '@/app/types'
+
 export interface FirestoreUser {
     email: string
     displayName: string
@@ -24,8 +26,8 @@ export interface FirestoreScenario {
     settings: Array<{ name: string, description: string }>
     logoOverlay?: string
     scenes: Array<{
-      imagePrompt: string
-      videoPrompt: string
+      imagePrompt: ImagePrompt
+      videoPrompt: VideoPrompt
       description: string
       voiceover: string
       charactersPresent: string[]

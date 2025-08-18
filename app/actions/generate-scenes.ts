@@ -4,8 +4,9 @@ import { generateImageCustomizationRest, generateImageRest } from '@/lib/imagen'
 import { getScenarioPrompt, getScenesPrompt2 } from '@/app/prompts';
 import { generateText } from '@/lib/gemini'
 import { Type } from '@google/genai';
+import { imagePromptToString } from '@/lib/prompt-utils';
 
-import { Scenario, Language } from "../types"
+import { Scenario, Language, ImagePrompt } from "../types"
 
 export async function generateScenario(name: string, pitch: string, numScenes: number, style: string, language: Language): Promise<Scenario> {
   try {
@@ -55,7 +56,14 @@ export async function generateScenario(name: string, pitch: string, numScenes: n
     const charactersWithImages = await Promise.all(scenario.characters.map(async (character, index) => {
       try {
         console.log(`Generating image for scene ${index + 1}`);
-        const resultJson = await generateImageRest(`${style}: ${character.description}`, "1:1");
+        // Define the order explicitly
+        const orderedPrompt = {
+          style: style,
+          name: character.name,
+          shot_type: "Full Shot",
+          description: character.description,
+        };
+        const resultJson = await generateImageRest(JSON.stringify(orderedPrompt, null, 4), "1:1");
         if (resultJson.predictions[0].raiFilteredReason) {
           throw new Error(resultJson.predictions[0].raiFilteredReason)
         } else {
@@ -105,12 +113,111 @@ export async function generateStoryboard(scenario: Scenario, numScenes: number, 
                 type: Type.OBJECT,
                 properties: {
                   'imagePrompt': {
-                    type: Type.STRING,
+                    type: Type.OBJECT,
                     nullable: false,
+                    properties: {
+                      'Style': {
+                        type: Type.STRING,
+                        nullable: false,
+                      },
+                      'Composition': {
+                        type: Type.OBJECT,
+                        nullable: false,
+                        properties: {
+                          'shot_type': {
+                            type: Type.STRING,
+                            nullable: false,
+                          },
+                          'lighting': {
+                            type: Type.STRING,
+                            nullable: false,
+                          },
+                          'overall_mood': {
+                            type: Type.STRING,
+                            nullable: false,
+                          }
+                        },
+                        required: ['shot_type', 'lighting', 'overall_mood'],
+                      },
+                      'Subject': {
+                        type: Type.ARRAY,
+                        nullable: false,
+                        items: {
+                          type: Type.OBJECT,
+                          properties: {
+                            'name': {
+                              type: Type.STRING,
+                              nullable: false,
+                            },
+                            'description': {
+                              type: Type.STRING,
+                              nullable: false,
+                            }
+                          },
+                          required: ['name', 'description'],
+                        }
+                      },
+                      'Context': {
+                        type: Type.ARRAY,
+                        nullable: false,
+                        items: {
+                          type: Type.OBJECT,
+                          properties: {
+                            'name': {
+                              type: Type.STRING,
+                              nullable: false,
+                            },
+                            'description': {
+                              type: Type.STRING,
+                              nullable: false,
+                            }
+                          },
+                          required: ['name', 'description'],
+                        }
+                      },
+                      'Scene': {
+                        type: Type.STRING,
+                        nullable: false,
+                      }
+                    },
+                    required: ['Style', 'Composition', 'Subject', 'Context', 'Scene'],
                   },
                   'videoPrompt': {
-                    type: Type.STRING,
+                    type: Type.OBJECT,
                     nullable: false,
+                    properties: {
+                      'Action': {
+                        type: Type.STRING,
+                        nullable: false,
+                      },
+                      'Camera_Motion': {
+                        type: Type.STRING,
+                        nullable: false,
+                      },
+                      'Ambiance_Audio': {
+                        type: Type.STRING,
+                        nullable: false,
+                      },
+                      'Dialogue': {
+                        type: Type.ARRAY,
+                        nullable: false,
+                        items: {
+                          type: Type.OBJECT,
+                          properties: {
+                            'speaker': {
+                              type: Type.STRING,
+                              nullable: false,
+                            },
+                            'line': {
+                              type: Type.STRING,
+                              nullable: false,
+                            }
+                          },
+                          required: ['speaker', 'line'],
+                        }
+                      }
+                    },
+                    required: ['Action', 'Camera_Motion', 'Ambiance_Audio', 'Dialogue'],
                   },
                   'description': {
                     type: Type.STRING,
@@ -162,13 +269,13 @@ export async function generateStoryboard(scenario: Scenario, numScenes: number, 
           );
           if (presentCharacters.length > 0) {
             console.log(`Using character customization for characters: ${presentCharacters.map(c => c.name).join(', ')}`);
-            resultJson = await generateImageCustomizationRest(scene.imagePrompt, presentCharacters);
+            resultJson = await generateImageCustomizationRest(imagePromptToString(scene.imagePrompt), presentCharacters);
           } else {
             console.warn(`Scene ${index + 1} listed characters [${scene.charactersPresent.join(', ')}] but no matching data found in charactersWithImages. Falling back to standard generation.`);
-            resultJson = await generateImageRest(scene.imagePrompt);
+            resultJson = await generateImageRest(imagePromptToString(scene.imagePrompt));
           }
         } else {
-          resultJson = await generateImageRest(scene.imagePrompt);
+          resultJson = await generateImageRest(imagePromptToString(scene.imagePrompt));
         }
         if (resultJson.predictions[0].raiFilteredReason) {
           throw new Error(resultJson.predictions[0].raiFilteredReason)

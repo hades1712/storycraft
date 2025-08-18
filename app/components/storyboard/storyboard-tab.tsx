@@ -4,9 +4,75 @@ import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { Grid, List, Loader2, Presentation, Video, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useState } from 'react'
-import { Scene, Scenario } from "../../types"
+import { Scene, Scenario, ImagePrompt, VideoPrompt } from "../../types"
 import { SceneData } from './scene-data'
 import { GcsImage } from '../ui/gcs-image'
+
+function ImagePromptDisplay({ imagePrompt }: { imagePrompt: ImagePrompt }) {
+  return (
+    <div className="space-y-3">
+      <div>
+        <span className="font-medium text-xs">Style:</span>
+        <p className="text-sm text-card-foreground/80">{imagePrompt.Style}</p>
+      </div>
+      <div>
+        <span className="font-medium text-xs">Scene:</span>
+        <p className="text-sm text-card-foreground/80">{imagePrompt.Scene}</p>
+      </div>
+      <div>
+        <span className="font-medium text-xs">Composition:</span>
+        <p className="text-sm text-card-foreground/80">
+          {imagePrompt.Composition.shot_type}, {imagePrompt.Composition.lighting}, {imagePrompt.Composition.overall_mood}
+        </p>
+      </div>
+      <div>
+        <span className="font-medium text-xs">Subjects:</span>
+        {imagePrompt.Subject.map((subject, index) => (
+          <p key={index} className="text-sm text-card-foreground/80 ml-2">
+            • {subject.name}: {subject.description}
+          </p>
+        ))}
+      </div>
+      <div>
+        <span className="font-medium text-xs">Context:</span>
+        {imagePrompt.Context.map((context, index) => (
+          <p key={index} className="text-sm text-card-foreground/80 ml-2">
+            • {context.name}: {context.description}
+          </p>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function VideoPromptDisplay({ videoPrompt }: { videoPrompt: VideoPrompt }) {
+  return (
+    <div className="space-y-3">
+      <div>
+        <span className="font-medium text-xs">Action:</span>
+        <p className="text-sm text-card-foreground/80">{videoPrompt.Action}</p>
+      </div>
+      <div>
+        <span className="font-medium text-xs">Camera Motion:</span>
+        <p className="text-sm text-card-foreground/80">{videoPrompt.Camera_Motion}</p>
+      </div>
+      <div>
+        <span className="font-medium text-xs">Ambiance Audio:</span>
+        <p className="text-sm text-card-foreground/80">{videoPrompt.Ambiance_Audio}</p>
+      </div>
+      {videoPrompt.Dialogue.length > 0 && (
+        <div>
+          <span className="font-medium text-xs">Dialogue:</span>
+          {videoPrompt.Dialogue.map((dialogue, index) => (
+            <p key={index} className="text-sm text-card-foreground/80 ml-2">
+              • {dialogue.speaker}: "{dialogue.line}"
+            </p>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 type ViewMode = 'grid' | 'list' | 'slideshow'
 
@@ -47,6 +113,7 @@ export function StoryboardTab({
                 key={index}
                 sceneNumber={index + 1}
                 scene={scene}
+                scenario={scenario}
                 onUpdate={(updatedScene) => onUpdateScene(index, updatedScene)}
                 onRegenerateImage={() => onRegenerateImage(index)}
                 onGenerateVideo={() => onGenerateVideo(index)}
@@ -65,6 +132,7 @@ export function StoryboardTab({
                   <SceneData
                     sceneNumber={index + 1}
                     scene={scene}
+                    scenario={scenario}
                     onUpdate={(updatedScene) => onUpdateScene(index, updatedScene)}
                     onRegenerateImage={() => onRegenerateImage(index)}
                     onGenerateVideo={() => onGenerateVideo(index)}
@@ -79,11 +147,11 @@ export function StoryboardTab({
                     <div className="space-y-4">
                       <div>
                         <h4 className="text-sm font-medium text-card-foreground mb-1">Image Prompt</h4>
-                        <p className="text-sm text-card-foreground/80 whitespace-pre-wrap">{scene.imagePrompt}</p>
+                        <ImagePromptDisplay imagePrompt={scene.imagePrompt} />
                       </div>
                       <div>
                         <h4 className="text-sm font-medium text-card-foreground mb-1">Video Prompt</h4>
-                        <p className="text-sm text-card-foreground/80 whitespace-pre-wrap">{scene.videoPrompt}</p>
+                        <VideoPromptDisplay videoPrompt={scene.videoPrompt} />
                       </div>
                       <div>
                         <h4 className="text-sm font-medium text-card-foreground mb-1">Voiceover</h4>
@@ -150,7 +218,7 @@ export function StoryboardTab({
                 <div className="space-y-4">
                   <div>
                     <h4 className="text-sm font-medium text-card-foreground mb-1">Image Prompt</h4>
-                    <p className="text-sm text-card-foreground/80">{scenes[currentSlide].imagePrompt}</p>
+                    <ImagePromptDisplay imagePrompt={scenes[currentSlide].imagePrompt} />
                   </div>
                   <div>
                     <h4 className="text-sm font-medium text-card-foreground mb-1">Voiceover</h4>

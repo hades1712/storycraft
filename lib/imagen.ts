@@ -4,7 +4,7 @@ import { GoogleAuth } from 'google-auth-library'
 const LOCATION = process.env.LOCATION
 const PROJECT_ID = process.env.PROJECT_ID
 const GCS_VIDEOS_STORAGE_URI = process.env.GCS_VIDEOS_STORAGE_URI
-const MODEL = 'imagen-4.0-generate-preview-06-06' //'imagen-3.0-generate-002'
+const MODEL = 'imagen-4.0-generate-001'
 const MODEL_EDIT = 'imagen-3.0-capability-001'
 
 async function getAccessToken(): Promise<string> {
@@ -36,7 +36,7 @@ export async function generateImageRest(prompt: string, aspectRatio?: string, en
   const token = await getAccessToken();
   const maxRetries = 5; // Maximum number of retries
   const initialDelay = 1000; // Initial delay in milliseconds (1 second)
-  console.log(MODEL)
+  console.log(prompt)
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {

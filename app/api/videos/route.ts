@@ -1,6 +1,6 @@
 import { Scene } from '@/app/types';
+import { videoPromptToString } from '@/lib/prompt-utils';
 import { generateSceneVideo, waitForOperation } from '@/lib/veo';
-import { getRAIUserMessage } from '@/lib/rai';
 import { GetSignedUrlConfig, Storage } from '@google-cloud/storage';
 import * as fs from 'fs/promises';
 import * as path from 'path';
@@ -46,7 +46,8 @@ export async function POST(req: Request): Promise<Response> {
           // randomize the placeholder video urls
           url = placeholderVideoUrls[Math.floor(Math.random() * placeholderVideoUrls.length)];
         } else {
-          const operationName = await generateSceneVideo(scene.videoPrompt, scene.imageGcsUri!);
+          const promptString = typeof scene.videoPrompt === 'string' ? scene.videoPrompt : videoPromptToString(scene.videoPrompt);
+          const operationName = await generateSceneVideo(promptString, scene.imageGcsUri!);
           console.log(`Operation started for scene ${index + 1}`);
 
           const generateVideoResponse = await waitForOperation(operationName);

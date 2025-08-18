@@ -39,8 +39,8 @@ export async function POST(request: NextRequest) {
       settings: scenario.settings || [],
       scenes: (scenario.scenes || []).map((scene: any) => {
         const sceneData: any = {
-          imagePrompt: scene.imagePrompt || '',
-          videoPrompt: scene.videoPrompt || '',
+          imagePrompt: scene.imagePrompt,
+          videoPrompt: scene.videoPrompt,
           description: scene.description || '',
           voiceover: scene.voiceover || '',
           charactersPresent: scene.charactersPresent || [],

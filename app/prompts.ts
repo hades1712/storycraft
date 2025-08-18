@@ -229,75 +229,42 @@ ${scenario.mood}
 
 2. Generate exactly ${numScenes}, creative scenes to create a storyboard illustrating the scenario. Follow these guidelines for the scenes:
  a. For each scene, provide:
- 1. A detailed visual description for AI image generation (imagePrompt) in ${language.name} for the first frame of the video, the style should be ${style}. Always use the FULL character(s) description(s) in your images prompts. No children.In formatted YAML string.
-schema:
-  type: object
-  properties:
-    Style:
-      type: string
-      description: Define the visual language of your project.
-    Composition:
-      type: object
-      description: Describe the composition of the shot. Be consistent.
-      properties:
-        shot_type:
-          type: string
-          description: Examples include Cinematic close-up, Wide establishing shot, etc.
-        lighting:
-          type: string
-          description: Examples include high-contrast, soft natural light, etc.
-        overall_mood:
-          type: string
-          description: Examples include gritty realism, atmospheric.
-      required:
-        - shot_type
-        - lighting
-        - lens_effects
-        - overall_mood
-    Subject:
-      type: string
-      description: Clearly state the main focus of the shot. If a character is the subject, paste their entire description here. If multiple characters are present, paste both full descriptions.
-    Context:
-      type: string
-      description: This is the most critical field for visual consistency. Fully describe the environment. Paste the entire setting description for the primary location. The “Interior + Exterior” Rule: If the shot is an interior with a window or viewport, you must describe both the interior and the visible exterior.
-  required:
-    - Style
-    - Composition
-    - Subject
-    - Context
- 2. A video prompt in ${language.name}, focusing on the movement of the characters, objects, in the scene, the style should be ${style}. No children.
-schema:
-  type: object
-  properties:
-    Action:
-      type: string
-      description: Describe precisely what the subject(s) is(are) doing within the 8-second clip. Be specific and evocative. Separate description from action. The Subject field describes who they are; the Action field describes what they do.
-    Camera_Motion:
-      type: string
-      description: Explicitly state the camera movement, even if it's static. This removes ambiguity.
-    Ambiance_Audio:
-      type: string
-      description: Diegetic Sound Only. This is crucial. Describe only the sounds that exist within the world of the scene. Do not mention music or narration, as those are post-production layers for different models. Be specific.
-    Dialogue:
-      type: array
-      description: Keep it short and natural to fit within the 8-second clip. The dialogue of all the scenes should make the story comprehensible for the viewer.
-      items:
-        type: object
-        properties:
-          speaker:
-            type: string
-            description: Assign lines using physical descriptions, not names, for maximum clarity (e.g., "The man in the blue shirt", "The woman with red hair").
-          line:
-            type: string
-            description: The actual dialogue spoken.
-        required:
-          - speaker
-          - line
-  required:
-    - Action
-    - Camera_Motion
-    - Ambiance_Audio
-    - Dialogue   
+ 1. A video prompt in ${language.name}, focusing on the movement of the characters, objects, in the scene, the style should be ${style}. No children. Return as a JSON object with the following schema:
+{
+  "Action": "Describe precisely what the subject(s) is(are) doing within the 8-second clip. Be specific and evocative. Separate description from action. The Subject field describes who they are; the Action field describes what they do.",
+  "Camera_Motion": "Explicitly state the camera movement, even if it's static. This removes ambiguity.",
+  "Ambiance_Audio": "Diegetic Sound Only. This is crucial. Describe only the sounds that exist within the world of the scene. Do not mention music or narration, as those are post-production layers for different models. Be specific.",
+  "Dialogue": [
+    {
+      "speaker": "Assign lines using physical descriptions, not names, for maximum clarity (e.g., 'The man in the blue shirt', 'The woman with red hair')",
+      "line": "The actual dialogue spoken"
+    }
+  ]
+}
+ 2. A detailed visual description for AI image generation (imagePrompt) in ${language.name} for the first frame of the video, the style should be ${style}. 
+ Keep in mind that the image prompt is for the first frame of the video, so it should be a single frame happening before the action in the video.
+ Always use the FULL character(s) description(s) in your images prompts. No children. Return as a JSON object with the following schema:
+{
+  "Style": "Define the visual language of your project",
+  "Scene": "Describe the specific scene being depicted - what is happening in this moment, the action or situation being shown, and how it fits into the overall narrative flow.",
+  "Composition": {
+    "shot_type": "Examples include Cinematic close-up, Wide establishing shot, etc.",
+    "lighting": "Examples include high-contrast, soft natural light, etc.",
+    "overall_mood": "Examples include gritty realism, atmospheric"
+  },
+  "Subject": [
+    {
+      "name": "character or object name",
+      "description": "full description of the character or object. If a character is the subject, paste their entire description here. If multiple characters are present, include each as a separate object in the array."
+    }
+  ],
+  "Context": [
+    {
+      "name": "setting or environment name",
+      "description": "This is the most critical field for visual consistency. Fully describe the environment. Paste the entire setting description for the primary location. The Interior + Exterior Rule: If the shot is an interior with a window or viewport, you must describe both the interior and the visible exterior."
+    }
+  ],
+}   
  3. A scene description  in ${language.name} explaining what happens (description). You can use the character(s) name(s) in your descriptions.
  4. A short, narrator voiceover text in ${language.name}. One full sentence, 6s max. (voiceover). You can use the character(s) name(s) in your vocieovers. 
 a. Each image prompt should describe a key scene or moment from your scenario.
@@ -315,8 +282,38 @@ Here's an example of how your output should be structured:
 {
  "scenes": [
  {
-  "imagePrompt": [A detailed visual description for AI image generation, including Style/Composition, Subject and Context as one big formatted yaml string],
-  "videoPrompt": [A video prompt, including Action, Camera Motion, Ambiance/Audio and Dialogue as one big formatted yaml string],
+  "imagePrompt": {
+    "Style": "visual style description",
+    "Composition": {
+      "shot_type": "type of shot",
+      "lighting": "lighting description",
+      "overall_mood": "mood description"
+    },
+    "Subject": [
+      {
+        "name": "subject name",
+        "description": "subject description"
+      }
+    ],
+    "Context": [
+      {
+        "name": "context name",
+        "description": "context description"
+      }
+    ],
+    "Scene": "scene description"
+  },
+  "videoPrompt": {
+    "Action": "action description",
+    "Camera_Motion": "camera movement",
+    "Ambiance_Audio": "ambient sounds",
+    "Dialogue": [
+      {
+        "speaker": "speaker description",
+        "line": "dialogue line"
+      }
+    ]
+  },
   "description": [A scene description explaining what happens],
   "voiceover": [A short, narrator voiceover text. One full sentence, 6s max.],
   "charactersPresent": [An array list of names of characters visually present in the scene]
