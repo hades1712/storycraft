@@ -22,7 +22,6 @@ import { StoryboardTab } from './components/storyboard/storyboard-tab'
 import { UserProfile } from "./components/user-profile"
 import { VideoTab } from './components/video/video-tab'
 import { Scenario, Scene, TimelineLayer, type Language } from './types'
-import { imagePromptToString } from "@/lib/prompt-utils"
 
 const styles: Style[] = [
   { name: "Photographic", image: "/styles/cinematic.jpg" },
@@ -107,7 +106,7 @@ export default function Home() {
       const response = await fetch('/api/regenerate-image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: imagePromptToString(scene.imagePrompt),
+        body: JSON.stringify({ prompt: scene.imagePrompt }),
       })
       
       const result = await response.json()
