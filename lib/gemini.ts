@@ -1,4 +1,4 @@
-import { ContentListUnion, GoogleGenAI, GenerateContentConfig } from '@google/genai';
+import { ContentListUnion, GenerateContentConfig, GoogleGenAI } from '@google/genai';
 
 const LOCATION = process.env.LOCATION
 const PROJECT_ID = process.env.PROJECT_ID
@@ -6,7 +6,7 @@ const PROJECT_ID = process.env.PROJECT_ID
 const ai = new GoogleGenAI({ vertexai: true, project: PROJECT_ID, location: LOCATION });
 
 
-export async function generateText(
+export async function generateContent(
     prompt: ContentListUnion,
     config: GenerateContentConfig = {
         thinkingConfig: {

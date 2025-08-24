@@ -22,6 +22,8 @@ import { StoryboardTab } from './components/storyboard/storyboard-tab'
 import { UserProfile } from "./components/user-profile"
 import { VideoTab } from './components/video/video-tab'
 import { Scenario, Scene, TimelineLayer, type Language } from './types'
+import { regenerateCharacterAndScenarioFromText } from "./actions/regenerate-character-and-scenario-from-text"
+import { regenerateCharacterAndScenario } from "./actions/regenerate-character-and-scenario"
 
 const styles: Style[] = [
   { name: "Photographic", image: "/styles/cinematic.jpg" },
@@ -154,38 +156,21 @@ export default function Home() {
     setErrorMessage(null)
     try {
       // Regenerate character image using the updated description
-      const orderedPrompt = {
-        style: style,
-        name: name,
-        shot_type: "Full Shot",
-        description: description,
-      };
+      const { newScenario, newImageGcsUri } = await regenerateCharacterAndScenarioFromText(scenario.scenario, scenario.characters[characterIndex].name, name, description, style)
       
-      const response = await fetch('/api/regenerate-image', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: JSON.stringify(orderedPrompt, null, 4) }),
-      })
-      
-      const result = await response.json()
-      
-      if (!result.success) {
-        throw new Error(result.errorMessage || result.error || 'Failed to regenerate character image')
-      }
-      
-      const { imageGcsUri } = result
       
       // Update the character with the new image AND the updated description
       const updatedCharacters = [...scenario.characters];
       updatedCharacters[characterIndex] = {
         ...updatedCharacters[characterIndex],
         description: description, // Preserve the updated description
-        imageGcsUri
+        imageGcsUri: newImageGcsUri
       };
       
       const updatedScenario = {
         ...scenario,
-        characters: updatedCharacters
+        characters: updatedCharacters,
+        scenario: newScenario
       };
       
       setScenario(updatedScenario);
@@ -457,6 +442,75 @@ export default function Home() {
     }
   }
 
+  const handleUploadCharacterImage = async (characterIndex: number, file: File) => {
+    if (!scenario) return;
+    
+    setErrorMessage(null);
+    setGeneratingCharacterImages(prev => new Set(prev).add(characterIndex));
+    
+    try {
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        try {
+          const base64String = reader.result as string;
+          const imageBase64 = base64String.split(",")[1]; // Remove the data URL prefix
+          const resizedImageGcsUri = await resizeImage(imageBase64);
+          
+          const character = scenario.characters[characterIndex];
+          const result = await regenerateCharacterAndScenario(
+            scenario.scenario,
+            character.name,
+            character.description,
+            resizedImageGcsUri,
+            scenario.characters
+          );
+          
+          // Update scenario with new character description and scenario text
+          setScenario(currentScenario => {
+            if (!currentScenario) return currentScenario;
+            
+            const updatedCharacters = [...currentScenario.characters];
+            updatedCharacters[characterIndex] = {
+              ...updatedCharacters[characterIndex],
+              description: result.updatedCharacter.description,
+              name: result.updatedCharacter.name,
+              imageGcsUri: resizedImageGcsUri
+            };
+            
+            return {
+              ...currentScenario,
+              scenario: result.updatedScenario,
+              characters: updatedCharacters
+            };
+          });
+          
+          
+        } catch (error) {
+          console.error("Error processing character image upload:", error);
+          setErrorMessage(error instanceof Error ? error.message : "An unknown error occurred while processing the character image");
+        }
+      };
+      reader.onerror = () => {
+        throw new Error("Failed to read the image file");
+      };
+      reader.readAsDataURL(file);
+    } catch (error) {
+      console.error("Error uploading character image:", error);
+      setErrorMessage(error instanceof Error ? error.message : "An unknown error occurred while uploading the character image");
+      setGeneratingCharacterImages(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(characterIndex);
+        return newSet;
+      });
+    } finally {
+      setGeneratingCharacterImages(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(characterIndex);
+        return newSet;
+      });
+    }
+  };
+
   const handleLogoRemove = () => {
     setLogoOverlay(null);
 
@@ -638,6 +692,106 @@ export default function Home() {
     });
   };
 
+  const createEmptyScene = (): Scene => {
+    return {
+      imagePrompt: {
+        Style: scenario?.style || 'Photographic',
+        Scene: 'A new scene to be described',
+        Composition: {
+          shot_type: 'Medium Shot',
+          lighting: 'Natural lighting',
+          overall_mood: 'Neutral'
+        },
+        Subject: [],
+        Context: []
+      },
+      videoPrompt: {
+        Action: 'Describe the action happening in this scene',
+        Camera_Motion: 'Static camera',
+        Ambiance_Audio: 'Natural ambient sounds',
+        Dialogue: []
+      },
+      description: 'A new scene that needs to be developed',
+      voiceover: 'Voiceover text for this scene',
+      charactersPresent: []
+    };
+  };
+
+  const handleAddScene = () => {
+    if (!scenario) return;
+    
+    const newScene = createEmptyScene();
+    const updatedScenes = [...scenario.scenes, newScene];
+    
+    setScenario({
+      ...scenario,
+      scenes: updatedScenes
+    });
+  };
+
+  const handleRemoveScene = (index: number) => {
+    if (!scenario || scenario.scenes.length <= 1) return;
+    
+    const updatedScenes = scenario.scenes.filter((_, i) => i !== index);
+    
+    // Clear any generating scenes that are affected by the removal
+    setGeneratingScenes(prev => {
+      const updated = new Set<number>();
+      prev.forEach(sceneIndex => {
+        if (sceneIndex < index) {
+          updated.add(sceneIndex);
+        } else if (sceneIndex > index) {
+          updated.add(sceneIndex - 1);
+        }
+        // Skip the deleted scene index
+      });
+      return updated;
+    });
+    
+    setScenario({
+      ...scenario,
+      scenes: updatedScenes
+    });
+  };
+
+  const handleReorderScenes = (fromIndex: number, toIndex: number) => {
+    if (!scenario || fromIndex === toIndex) return;
+    
+    const updatedScenes = [...scenario.scenes];
+    const [movedScene] = updatedScenes.splice(fromIndex, 1);
+    updatedScenes.splice(toIndex, 0, movedScene);
+    
+    // Update generating scenes indices
+    setGeneratingScenes(prev => {
+      const updated = new Set<number>();
+      prev.forEach(sceneIndex => {
+        let newIndex = sceneIndex;
+        
+        if (sceneIndex === fromIndex) {
+          newIndex = toIndex;
+        } else if (fromIndex < toIndex) {
+          // Moving forward
+          if (sceneIndex > fromIndex && sceneIndex <= toIndex) {
+            newIndex = sceneIndex - 1;
+          }
+        } else {
+          // Moving backward
+          if (sceneIndex >= toIndex && sceneIndex < fromIndex) {
+            newIndex = sceneIndex + 1;
+          }
+        }
+        
+        updated.add(newIndex);
+      });
+      return updated;
+    });
+    
+    setScenario({
+      ...scenario,
+      scenes: updatedScenes
+    });
+  };
+
   return (
     <main className="container mx-auto p-8 min-h-screen bg-background flex flex-col">
       <div className="flex items-center justify-between mb-8">
@@ -696,6 +850,7 @@ export default function Home() {
             isLoading={isLoading}
             onScenarioUpdate={handleScenarioUpdate}
             onRegenerateCharacterImage={handleRegenerateCharacterImage}
+            onUploadCharacterImage={handleUploadCharacterImage}
             generatingCharacterImages={generatingCharacterImages}
           />
         )}
@@ -711,6 +866,9 @@ export default function Home() {
             onRegenerateImage={handleRegenerateImage}
             onGenerateVideo={handleGenerateVideo}
             onUploadImage={handleUploadImage}
+            onAddScene={handleAddScene}
+            onRemoveScene={handleRemoveScene}
+            onReorderScenes={handleReorderScenes}
           />
         )}
 

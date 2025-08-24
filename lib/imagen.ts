@@ -57,20 +57,22 @@ export async function generateImageRest(prompt: string, aspectRatio?: string, en
             parameters: {
               // storageUri: "gs://svc-demo-vertex-us/",
               safetySetting: 'block_only_high',
-              personGeneration: 'allow_adult',
+              personGeneration: 'allow_all',
               sampleCount: 1,
               aspectRatio: aspectRatio ? aspectRatio : "16:9",
               includeRaiReason: true,
               storageUri: GCS_VIDEOS_STORAGE_URI,
-              enhancePrompt: enhancePrompt !== undefined ? enhancePrompt : true,
+              enhancePrompt: enhancePrompt !== undefined ? enhancePrompt : false,
               language: 'auto',
+              // seed: 1005,
+              addWatermark: false,
             },
           }),
         }
       )
       // Check if the response was successful
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        throw new Error(`HTTP error! status: ${response.status} ${JSON.stringify(await response.json())}`);
       }
       const jsonResult = await response.json(); // Parse as JSON
       return jsonResult;

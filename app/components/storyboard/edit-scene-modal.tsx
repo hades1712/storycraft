@@ -27,7 +27,15 @@ export function EditSceneModal({ isOpen, onClose, scene, sceneNumber, scenario, 
   const [activeTab, setActiveTab] = useState('general'); // 'general', 'image' or 'video'
 
   useEffect(() => {
-    setEditedScene(scene)
+    // Ensure the scene has proper structure for Subject array
+    const normalizedScene = {
+      ...scene,
+      imagePrompt: {
+        ...scene.imagePrompt,
+        Subject: scene.imagePrompt.Subject || []
+      }
+    }
+    setEditedScene(normalizedScene)
   }, [scene])
 
   useEffect(() => {
@@ -69,8 +77,9 @@ export function EditSceneModal({ isOpen, onClose, scene, sceneNumber, scenario, 
   }
 
   const updateImagePromptSubjects = (selectedCharacterNames: string[]) => {
-    // Convert selected character names to Subject objects with full descriptions
-    const subjects = selectedCharacterNames.map(characterName => {
+    // Filter out empty or invalid character names and convert to Subject objects
+    const validCharacterNames = selectedCharacterNames.filter(name => name && name.trim() !== '')
+    const subjects = validCharacterNames.map(characterName => {
       const character = scenario.characters.find(c => c.name === characterName)
       return {
         name: characterName,
@@ -88,7 +97,7 @@ export function EditSceneModal({ isOpen, onClose, scene, sceneNumber, scenario, 
   }
 
   const getSelectedCharacterNames = (): string[] => {
-    return editedScene.imagePrompt.Subject.map(subject => subject.name)
+    return editedScene.imagePrompt.Subject?.map(subject => subject.name).filter(name => name && name.trim() !== '') || []
   }
 
   const handleCharacterSelectionChange = (selectedCharacterNames: string[]) => {
@@ -421,14 +430,14 @@ export function EditSceneModal({ isOpen, onClose, scene, sceneNumber, scenario, 
                     </div>
                     {editedScene.videoPrompt.Dialogue.map((dialogue, index) => (
                       <div key={index} className="flex gap-2 ml-4">
-                        <div className="flex-1">
+                        <div className="w-1/3">
                           <Input
                             value={dialogue.speaker}
                             onChange={(e) => updateVideoPromptDialogue(index, 'speaker', e.target.value)}
                             placeholder="Speaker description"
                           />
                         </div>
-                        <div className="flex-2">
+                        <div className="flex-1">
                           <Input
                             value={dialogue.line}
                             onChange={(e) => updateVideoPromptDialogue(index, 'line', e.target.value)}

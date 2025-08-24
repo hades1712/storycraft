@@ -15,8 +15,14 @@ export function imagePromptToString(imagePrompt: ImagePrompt): string {
       lighting: imagePrompt.Composition.lighting,
       overall_mood: imagePrompt.Composition.overall_mood
     },
-    Subject: imagePrompt.Subject,
-    Context: imagePrompt.Context
+    Subject: imagePrompt.Subject.map(subject => ({
+      name: subject.name, 
+      description: subject.description
+    })),
+    Context: imagePrompt.Context.map(context => ({
+      name: context.name, 
+      description: context.description
+    })),
   };
   return yaml.dump(orderedPrompt, { indent: 2, lineWidth: -1 });
 }

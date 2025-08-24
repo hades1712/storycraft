@@ -43,7 +43,7 @@ export interface Scenario {
   musicUrl?: string;
   language: Language;
   characters: Array<{ name: string, description: string, imageGcsUri?: string }>;
-  settings: Array<{ name: string, description: string }>;
+  settings: Array<{ name: string, description: string, imageGcsUri?: string }>;
   logoOverlay?: string;
   scenes: Scene[];
 }

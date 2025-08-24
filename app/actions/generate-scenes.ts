@@ -2,22 +2,23 @@
 
 import { generateImageCustomizationRest, generateImageRest } from '@/lib/imagen';
 import { getScenarioPrompt, getScenesPrompt2 } from '@/app/prompts';
-import { generateText } from '@/lib/gemini'
+import { generateContent } from '@/lib/gemini'
 import { Type } from '@google/genai';
 import { imagePromptToString } from '@/lib/prompt-utils';
+import yaml from 'js-yaml'
 
-import { Scenario, Language, ImagePrompt } from "../types"
+import { Scenario, Language } from "../types"
 
 export async function generateScenario(name: string, pitch: string, numScenes: number, style: string, language: Language): Promise<Scenario> {
   try {
     const prompt = getScenarioPrompt(pitch, numScenes, style, language);
     console.log('Create a scenario')
-    const text = await generateText(
+    const text = await generateContent(
       prompt,
       {
         thinkingConfig: {
           includeThoughts: false,
-          thinkingBudget: -1,
+          thinkingBudget: 0,
         },
         responseMimeType: 'application/json',
       }
@@ -45,38 +46,65 @@ export async function generateScenario(name: string, pitch: string, numScenes: n
         }
       };
 
-      console.log(scenario.scenario)
-      console.log(scenario.characters)
-      console.log(scenario.settings)
+      console.log(JSON.stringify(scenario, null, 4))
     } catch (parseError) {
       console.error('Error parsing AI response:', text)
       throw new Error(`Failed to parse AI response: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`)
     }
 
-    const charactersWithImages = await Promise.all(scenario.characters.map(async (character, index) => {
-      try {
-        console.log(`Generating image for scene ${index + 1}`);
-        // Define the order explicitly
-        const orderedPrompt = {
-          style: style,
-          name: character.name,
-          shot_type: "Full Shot",
-          description: character.description,
-        };
-        const resultJson = await generateImageRest(JSON.stringify(orderedPrompt, null, 4), "1:1");
-        if (resultJson.predictions[0].raiFilteredReason) {
-          throw new Error(resultJson.predictions[0].raiFilteredReason)
-        } else {
-          console.log('Generated image:', resultJson.predictions[0].gcsUri);
-          return { ...character, imageGcsUri: resultJson.predictions[0].gcsUri };
+    // Generate all images (characters and settings) simultaneously
+    const [charactersWithImages, settingsWithImages] = await Promise.all([
+      Promise.all(scenario.characters.map(async (character, index) => {
+        try {
+          console.log(`Generating image for character ${index + 1}: ${character.name}`);
+          // Define the order explicitly
+          const orderedPrompt = {
+            style: style,
+            //name: character.name,
+            shot_type: "Medium Shot",
+            description: character.description,
+            // prohibited_elements: "watermark, text overlay, warped face, floating limbs, distorted hands, blurry edges"
+          };
+          const resultJson = await generateImageRest(yaml.dump(orderedPrompt, { indent: 2, lineWidth: -1 }), "1:1");
+          if (resultJson.predictions[0].raiFilteredReason) {
+            throw new Error(resultJson.predictions[0].raiFilteredReason)
+          } else {
+            console.log('Generated character image:', resultJson.predictions[0].gcsUri);
+            return { ...character, imageGcsUri: resultJson.predictions[0].gcsUri };
+          }
+        } catch (error) {
+          console.error('Error generating character image:', error);
+          return { ...character, imageGcsUri: undefined };
         }
-      } catch (error) {
-        console.error('Error generating image:', error);
-        return { ...character, imageGcsUri: undefined };
-      }
-    }))
+      })),
+      Promise.all(scenario.settings.map(async (setting, index) => {
+        try {
+          console.log(`Generating image for setting ${index + 1}: ${setting.name}`);
+          // Define the order explicitly
+          const orderedPrompt = {
+            style: style,
+            //name: setting.name,
+            shot_type: "Wide Shot",
+            description: setting.description,
+            //prohibited_elements: "people, characters, watermark, text overlay, warped face, floating limbs, distorted hands, blurry edges"
+          };
+          const resultJson = await generateImageRest(yaml.dump(orderedPrompt, { indent: 2, lineWidth: -1 }), "1:1");
+          if (resultJson.predictions[0].raiFilteredReason) {
+            throw new Error(resultJson.predictions[0].raiFilteredReason)
+          } else {
+            console.log('Generated setting image:', resultJson.predictions[0].gcsUri);
+            return { ...setting, imageGcsUri: resultJson.predictions[0].gcsUri };
+          }
+        }
+        catch (error) {
+          console.error('Error generating setting image:', error);
+          return { ...setting, imageGcsUri: undefined };
+        }
+      }))
+    ]);
 
     scenario.characters = charactersWithImages
+    scenario.settings = settingsWithImages
     return scenario
   } catch (error) {
     console.error('Error generating scenes:', error)
@@ -96,12 +124,12 @@ export async function generateStoryboard(scenario: Scenario, numScenes: number, 
     };
 
     const prompt = getScenesPrompt2(scenario, numScenes, style, language)
-    const text = await generateText(
+    const text = await generateContent(
       prompt,
       {
         thinkingConfig: {
           includeThoughts: false,
-          thinkingBudget: -1,
+          thinkingBudget: 0,
         },
         responseMimeType: 'application/json',
         responseSchema: {
@@ -251,7 +279,7 @@ export async function generateStoryboard(scenario: Scenario, numScenes: number, 
     try {
       const parsedScenes = JSON.parse(text);
       newScenario.scenes = parsedScenes.scenes
-      console.log('Server side scenes after parsing:', newScenario.scenes)
+      console.log('Server side scenes after parsing:', JSON.stringify(newScenario.scenes, null, 4))
     } catch (parseError) {
       console.error('Error parsing AI response:', text)
       throw new Error(`Failed to parse AI response: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`)

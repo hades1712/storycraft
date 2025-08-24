@@ -63,7 +63,7 @@ Here's an example of how your output should be structured:
     "name": "[character 1 name]", 
     "description": [
       "character 1 description in ${language.name}",
-      "Be hyper-specific and affirmative. Include age, gender, ethnicity, specific facial features if any, hair style and color, facial hair or absence of it for male, skin details and exact clothing, including textures and accessories.",
+      "Be hyper-specific and affirmative and short, one sentence max. Include age, gender, ethnicity, specific facial features if any, hair style and color, facial hair or absence of it for male, skin details and exact clothing, including textures and accessories.",
       // "Describe the character's voice clearly to guide the audio generation for any dialogue."
       ]
   },
@@ -71,7 +71,7 @@ Here's an example of how your output should be structured:
     "name": "[character 2 name]", 
     "description": [
       "character 2 description in ${language.name}",
-      "Be hyper-specific and affirmative. Include age, gender, ethnicity, specific facial features if any, hair style and color, facial hair or absence of it for male, skin details and exact clothing, including textures and accessories.",
+      "Be hyper-specific and affirmative and short, one sentence max. Include age, gender, ethnicity, specific facial features if any, hair style and color, facial hair or absence of it for male, skin details and exact clothing, including textures and accessories.",
       // "Describe the character's voice clearly to guide the audio generation for any dialogue."
       ]
   },
@@ -83,7 +83,7 @@ Here's an example of how your output should be structured:
     "description": [
       "setting 1 description in ${language.name}",
       "This description establishes the atmosphere, lighting, and key features that must remain consistent.",
-      "Be Evocative: Describe the mood, the materials, the lighting, and even the smell or feeling of the air."
+      "Be Evocative and short, one sentence max: Describe the mood, the materials, the lighting, and even the smell or feeling of the air."
     ]
   },
   {
@@ -91,7 +91,7 @@ Here's an example of how your output should be structured:
     "description": [
       "setting 2 description in ${language.name}",
       "This description establishes the atmosphere, lighting, and key features that must remain consistent.",
-      "Be Evocative: Describe the mood, the materials, the lighting, and even the smell or feeling of the air."
+      "Be Evocative and short, one sentence max: Describe the mood, the materials, the lighting, and even the smell or feeling of the air."
     ]
   },
   [...]
@@ -243,7 +243,7 @@ ${scenario.mood}
 }
  2. A detailed visual description for AI image generation (imagePrompt) in ${language.name} for the first frame of the video, the style should be ${style}. 
  Keep in mind that the image prompt is for the first frame of the video, so it should be a single frame happening before the action in the video.
- Always use the FULL character(s) description(s) in your images prompts. No children. Return as a JSON object with the following schema:
+ No children. Return as a JSON object with the following schema:
 {
   "Style": "Define the visual language of your project",
   "Scene": "Describe the specific scene being depicted - what is happening in this moment, the action or situation being shown, and how it fits into the overall narrative flow.",

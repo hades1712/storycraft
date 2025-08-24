@@ -1,9 +1,10 @@
 'use client'
 
 import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
-import { Grid, List, Loader2, Presentation, Video, ChevronLeft, ChevronRight } from 'lucide-react'
-import { useState } from 'react'
+import { Grid, List, Loader2, Presentation, Video, ChevronLeft, ChevronRight, Plus, Minus } from 'lucide-react'
+import { useState, useEffect } from 'react'
 import { Scene, Scenario, ImagePrompt, VideoPrompt } from "../../types"
 import { SceneData } from './scene-data'
 import { GcsImage } from '../ui/gcs-image'
@@ -86,6 +87,9 @@ interface StoryboardTabProps {
   onRegenerateImage: (index: number) => Promise<void>
   onGenerateVideo: (index: number) => Promise<void>
   onUploadImage: (index: number, file: File) => Promise<void>
+  onAddScene: () => void
+  onRemoveScene: (index: number) => void
+  onReorderScenes: (fromIndex: number, toIndex: number) => void
 }
 
 export function StoryboardTab({
@@ -98,10 +102,48 @@ export function StoryboardTab({
   onRegenerateImage,
   onGenerateVideo,
   onUploadImage,
+  onAddScene,
+  onRemoveScene,
+  onReorderScenes,
 }: StoryboardTabProps) {
   const scenes = scenario.scenes
   const [viewMode, setViewMode] = useState<ViewMode>('grid')
   const [currentSlide, setCurrentSlide] = useState(0)
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
+
+  // Handle current slide index when scenes change
+  useEffect(() => {
+    if (currentSlide >= scenes.length && scenes.length > 0) {
+      setCurrentSlide(scenes.length - 1)
+    }
+  }, [scenes.length, currentSlide])
+
+  const handleDragStart = (index: number) => (e: React.DragEvent) => {
+    setDraggedIndex(index)
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/html', index.toString())
+  }
+
+  const handleDragEnd = () => {
+    setDraggedIndex(null)
+    setDragOverIndex(null)
+  }
+
+  const handleDragOver = (index: number) => (e: React.DragEvent) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    setDragOverIndex(index)
+  }
+
+  const handleDrop = (index: number) => (e: React.DragEvent) => {
+    e.preventDefault()
+    if (draggedIndex !== null && draggedIndex !== index) {
+      onReorderScenes(draggedIndex, index)
+    }
+    setDraggedIndex(null)
+    setDragOverIndex(null)
+  }
 
   const renderScenes = () => {
     switch (viewMode) {
@@ -118,9 +160,30 @@ export function StoryboardTab({
                 onRegenerateImage={() => onRegenerateImage(index)}
                 onGenerateVideo={() => onGenerateVideo(index)}
                 onUploadImage={(file) => onUploadImage(index, file)}
+                onRemoveScene={() => onRemoveScene(index)}
                 isGenerating={generatingScenes.has(index)}
+                canDelete={scenes.length > 1}
+                isDragOver={dragOverIndex === index}
+                onDragStart={handleDragStart(index)}
+                onDragEnd={handleDragEnd}
+                onDragOver={handleDragOver(index)}
+                onDrop={handleDrop(index)}
               />
             ))}
+            {/* Add Scene Card */}
+            <Card className="overflow-hidden border-dashed border-2 hover:bg-accent/50 cursor-pointer transition-colors" onClick={() => onAddScene()}>
+              <div className="flex flex-col h-full">
+                <div className="relative w-full aspect-video overflow-hidden flex items-center justify-center bg-muted/30">
+                  <div className="text-center">
+                    <Plus className="h-12 w-12 mx-auto mb-2 text-muted-foreground" />
+                    <p className="text-sm text-muted-foreground">Add Scene</p>
+                  </div>
+                </div>
+                <CardContent className="p-4 flex-1 flex items-center justify-center">
+                  <p className="text-sm text-muted-foreground text-center">Click to add a new scene</p>
+                </CardContent>
+              </div>
+            </Card>
           </div>
         )
       case 'list':
@@ -137,8 +200,15 @@ export function StoryboardTab({
                     onRegenerateImage={() => onRegenerateImage(index)}
                     onGenerateVideo={() => onGenerateVideo(index)}
                     onUploadImage={(file) => onUploadImage(index, file)}
+                    onRemoveScene={() => onRemoveScene(index)}
                     isGenerating={generatingScenes.has(index)}
+                    canDelete={scenes.length > 1}
                     hideControls
+                    isDragOver={dragOverIndex === index}
+                    onDragStart={handleDragStart(index)}
+                    onDragEnd={handleDragEnd}
+                    onDragOver={handleDragOver(index)}
+                    onDrop={handleDrop(index)}
                   />
                 </div>
                 <div className="w-2/3">
@@ -162,6 +232,29 @@ export function StoryboardTab({
                 </div>
               </div>
             ))}
+            {/* Add Scene Card */}
+            <div className="flex gap-6">
+              <div className="w-1/3">
+                <Card className="overflow-hidden border-dashed border-2 hover:bg-accent/50 cursor-pointer transition-colors" onClick={() => onAddScene()}>
+                  <div className="flex flex-col h-full">
+                    <div className="relative w-full aspect-video overflow-hidden flex items-center justify-center bg-muted/30">
+                      <div className="text-center">
+                        <Plus className="h-8 w-8 mx-auto mb-1 text-muted-foreground" />
+                        <p className="text-xs text-muted-foreground">Add Scene</p>
+                      </div>
+                    </div>
+                    <CardContent className="p-2">
+                      <p className="text-xs text-muted-foreground text-center">New Scene</p>
+                    </CardContent>
+                  </div>
+                </Card>
+              </div>
+              <div className="w-2/3">
+                <div className="p-4 bg-muted/30 rounded-lg border-dashed border-2 h-full flex items-center justify-center">
+                  <p className="text-sm text-muted-foreground">Click to add a new scene</p>
+                </div>
+              </div>
+            </div>
           </div>
         )
       case 'slideshow':
@@ -225,6 +318,16 @@ export function StoryboardTab({
                     <p className="text-sm text-card-foreground/80">{scenes[currentSlide].voiceover}</p>
                   </div>
                 </div>
+              </div>
+              <div className="flex justify-center">
+                <Button
+                  variant="outline"
+                  onClick={() => onAddScene()}
+                  className="border-dashed border-2 hover:bg-accent"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Scene
+                </Button>
               </div>
             </div>
           </div>
