@@ -165,6 +165,7 @@ export default function Home() {
       const updatedCharacters = [...scenario.characters];
       updatedCharacters[characterIndex] = {
         ...updatedCharacters[characterIndex],
+        name: name, // Preserve the updated name
         description: description, // Preserve the updated description
         imageGcsUri: newImageGcsUri
       };

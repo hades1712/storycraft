@@ -1,10 +1,11 @@
 'use client'
 
 import { Button } from "@/components/ui/button"
-import { LayoutGrid, Loader2, Pencil, Upload } from "lucide-react";
+import { LayoutGrid, Loader2, Pencil, Upload, Plus, X } from "lucide-react";
 import { Scenario } from "../../types";
 import { useState, useRef, useEffect } from "react";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { GcsImage } from "../ui/gcs-image";
 import { regenerateScenarioFromSetting } from "../../actions/regenerate-scenario-from-settings";
 
@@ -25,9 +26,11 @@ export function ScenarioTab({ scenario, onGenerateStoryBoard, isLoading, onScena
     const [isScenarioHovering, setIsScenarioHovering] = useState(false);
     const [editingCharacterIndex, setEditingCharacterIndex] = useState<number | null>(null);
     const [editedCharacterDescriptions, setEditedCharacterDescriptions] = useState<string[]>([]);
+    const [editedCharacterNames, setEditedCharacterNames] = useState<string[]>([]);
     const [characterHoverStates, setCharacterHoverStates] = useState<boolean[]>([]);
     const [editingSettingIndex, setEditingSettingIndex] = useState<number | null>(null);
     const [editedSettingDescriptions, setEditedSettingDescriptions] = useState<string[]>([]);
+    const [editedSettingNames, setEditedSettingNames] = useState<string[]>([]);
     const [settingHoverStates, setSettingHoverStates] = useState<boolean[]>([]);
     const [localGeneratingSettings, setLocalGeneratingSettings] = useState<Set<number>>(new Set());
     const [isEditingMusic, setIsEditingMusic] = useState(false);
@@ -45,6 +48,7 @@ export function ScenarioTab({ scenario, onGenerateStoryBoard, isLoading, onScena
         }
         if (scenario?.characters) {
             setEditedCharacterDescriptions(scenario.characters.map(char => char.description));
+            setEditedCharacterNames(scenario.characters.map(char => char.name));
             // Initialize refs array for character editing areas
             characterEditingRefs.current = new Array(scenario.characters.length).fill(null);
             // Initialize refs array for character file inputs
@@ -54,6 +58,7 @@ export function ScenarioTab({ scenario, onGenerateStoryBoard, isLoading, onScena
         }
         if (scenario?.settings) {
             setEditedSettingDescriptions(scenario.settings.map(setting => setting.description));
+            setEditedSettingNames(scenario.settings.map(setting => setting.name));
             // Initialize refs array for setting editing areas
             settingEditingRefs.current = new Array(scenario.settings.length).fill(null);
             // Initialize hover states for settings
@@ -103,7 +108,7 @@ export function ScenarioTab({ scenario, onGenerateStoryBoard, isLoading, onScena
         return () => {
             document.removeEventListener('mousedown', handleClickOutside);
         };
-    }, [isEditing, editedScenario, editingCharacterIndex, editedCharacterDescriptions, editingSettingIndex, editedSettingDescriptions, isEditingMusic, editedMusic]);
+    }, [isEditing, editedScenario, editingCharacterIndex, editedCharacterDescriptions, editedCharacterNames, editingSettingIndex, editedSettingDescriptions, editedSettingNames, isEditingMusic, editedMusic]);
 
     const handleScenarioChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
         setEditedScenario(e.target.value);
@@ -113,6 +118,12 @@ export function ScenarioTab({ scenario, onGenerateStoryBoard, isLoading, onScena
         const newDescriptions = [...editedCharacterDescriptions];
         newDescriptions[index] = value;
         setEditedCharacterDescriptions(newDescriptions);
+    };
+
+    const handleCharacterNameChange = (index: number, value: string) => {
+        const newNames = [...editedCharacterNames];
+        newNames[index] = value;
+        setEditedCharacterNames(newNames);
     };
 
     const handleCharacterHover = (index: number, isHovering: boolean) => {
@@ -125,6 +136,12 @@ export function ScenarioTab({ scenario, onGenerateStoryBoard, isLoading, onScena
         const newDescriptions = [...editedSettingDescriptions];
         newDescriptions[index] = value;
         setEditedSettingDescriptions(newDescriptions);
+    };
+
+    const handleSettingNameChange = (index: number, value: string) => {
+        const newNames = [...editedSettingNames];
+        newNames[index] = value;
+        setEditedSettingNames(newNames);
     };
 
     const handleSettingHover = (index: number, isHovering: boolean) => {
@@ -161,13 +178,15 @@ export function ScenarioTab({ scenario, onGenerateStoryBoard, isLoading, onScena
     };
 
     const handleSaveCharacter = async (index: number) => {
-        if (scenario && onScenarioUpdate && onRegenerateCharacterImage) {
+        if (scenario && onScenarioUpdate) {
             const updatedDescription = editedCharacterDescriptions[index];
+            const updatedName = editedCharacterNames[index];
             
-            // Update the scenario with the new description
+            // Update the scenario with the new description and name
             const updatedCharacters = [...scenario.characters];
             updatedCharacters[index] = {
                 ...updatedCharacters[index],
+                name: updatedName,
                 description: updatedDescription
             };
             const updatedScenario = {
@@ -176,8 +195,10 @@ export function ScenarioTab({ scenario, onGenerateStoryBoard, isLoading, onScena
             };
             onScenarioUpdate(updatedScenario);
             
-            // Regenerate image with the updated description
-            await onRegenerateCharacterImage(index, updatedCharacters[index].name, updatedDescription);
+            // Optionally regenerate image with the updated name and description
+            if (onRegenerateCharacterImage) {
+                await onRegenerateCharacterImage(index, updatedName, updatedDescription);
+            }
         }
         setEditingCharacterIndex(null);
     };
@@ -185,6 +206,7 @@ export function ScenarioTab({ scenario, onGenerateStoryBoard, isLoading, onScena
     const handleSaveSetting = async (index: number) => {
         if (scenario && onScenarioUpdate) {
             const updatedDescription = editedSettingDescriptions[index];
+            const updatedName = editedSettingNames[index];
             const setting = scenario.settings[index];
             
             // Add to loading state
@@ -196,14 +218,15 @@ export function ScenarioTab({ scenario, onGenerateStoryBoard, isLoading, onScena
                 const { updatedScenario: newScenarioText } = await regenerateScenarioFromSetting(
                     scenario.scenario,
                     setting.name,
-                    setting.name, // name stays the same for now
+                    updatedName, // use the updated name
                     updatedDescription
                 );
                 
-                // Update the scenario with the new setting description and scenario text
+                // Update the scenario with the new setting name, description and scenario text
                 const updatedSettings = [...scenario.settings];
                 updatedSettings[index] = {
                     ...updatedSettings[index],
+                    name: updatedName,
                     description: updatedDescription
                 };
                 const updatedScenario = {
@@ -214,10 +237,11 @@ export function ScenarioTab({ scenario, onGenerateStoryBoard, isLoading, onScena
                 onScenarioUpdate(updatedScenario);
             } catch (error) {
                 console.error('Error updating setting:', error);
-                // Still update the setting description even if scenario regeneration fails
+                // Still update the setting name and description even if scenario regeneration fails
                 const updatedSettings = [...scenario.settings];
                 updatedSettings[index] = {
                     ...updatedSettings[index],
+                    name: updatedName,
                     description: updatedDescription
                 };
                 const updatedScenario = {
@@ -248,6 +272,80 @@ export function ScenarioTab({ scenario, onGenerateStoryBoard, isLoading, onScena
             onScenarioUpdate(updatedScenario);
         }
         setIsEditingMusic(false);
+    };
+
+    const handleAddCharacter = () => {
+        if (scenario && onScenarioUpdate) {
+            const newCharacter = {
+                name: "New Character",
+                description: "Enter character description..."
+            };
+            const updatedCharacters = [...scenario.characters, newCharacter];
+            const updatedScenario = {
+                ...scenario,
+                characters: updatedCharacters
+            };
+            onScenarioUpdate(updatedScenario);
+            
+            // Set the new character to editing mode
+            setEditingCharacterIndex(updatedCharacters.length - 1);
+        }
+    };
+
+    const handleRemoveCharacter = (index: number) => {
+        if (scenario && onScenarioUpdate) {
+            const updatedCharacters = scenario.characters.filter((_, i) => i !== index);
+            const updatedScenario = {
+                ...scenario,
+                characters: updatedCharacters
+            };
+            onScenarioUpdate(updatedScenario);
+            
+            // Clear editing state if we're removing the character being edited
+            if (editingCharacterIndex === index) {
+                setEditingCharacterIndex(null);
+            } else if (editingCharacterIndex !== null && editingCharacterIndex > index) {
+                // Adjust editing index if removing a character before the one being edited
+                setEditingCharacterIndex(editingCharacterIndex - 1);
+            }
+        }
+    };
+
+    const handleAddSetting = () => {
+        if (scenario && onScenarioUpdate) {
+            const newSetting = {
+                name: "New Setting",
+                description: "Enter setting description..."
+            };
+            const updatedSettings = [...scenario.settings, newSetting];
+            const updatedScenario = {
+                ...scenario,
+                settings: updatedSettings
+            };
+            onScenarioUpdate(updatedScenario);
+            
+            // Set the new setting to editing mode
+            setEditingSettingIndex(updatedSettings.length - 1);
+        }
+    };
+
+    const handleRemoveSetting = (index: number) => {
+        if (scenario && onScenarioUpdate) {
+            const updatedSettings = scenario.settings.filter((_, i) => i !== index);
+            const updatedScenario = {
+                ...scenario,
+                settings: updatedSettings
+            };
+            onScenarioUpdate(updatedScenario);
+            
+            // Clear editing state if we're removing the setting being edited
+            if (editingSettingIndex === index) {
+                setEditingSettingIndex(null);
+            } else if (editingSettingIndex !== null && editingSettingIndex > index) {
+                // Adjust editing index if removing a setting before the one being edited
+                setEditingSettingIndex(editingSettingIndex - 1);
+            }
+        }
     };
 
     return (
@@ -303,11 +401,20 @@ export function ScenarioTab({ scenario, onGenerateStoryBoard, isLoading, onScena
                                 <p className="whitespace-pre-wrap p-4 rounded-lg border border-transparent group-hover:border-gray-200 transition-colors">{scenario.scenario}</p>
                             )}
                         </div>
-                        <div className="col-span-1">
+                        <div className="col-span-1 flex justify-between items-center">
                             <h3 className="text-xl font-bold">Characters</h3>
+                            <Button
+                                onClick={handleAddCharacter}
+                                variant="outline"
+                                size="sm"
+                                className="flex items-center gap-2"
+                            >
+                                <Plus className="h-4 w-4" />
+                                Add Character
+                            </Button>
                         </div>
                         {scenario.characters.map((character, index) => (
-                            <div key={character.name} className="flex gap-4 items-start">
+                            <div key={index} className="flex gap-4 items-start">
                                 <div className="flex-shrink-0 w-[200px] h-[200px] relative group">
                                     {generatingCharacterImages?.has(index) && (
                                         <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-10 rounded-lg">
@@ -320,7 +427,7 @@ export function ScenarioTab({ scenario, onGenerateStoryBoard, isLoading, onScena
                                         className="object-cover rounded-lg shadow-md"
                                         sizes="200px"
                                     />
-                                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
                                         <Button
                                             variant="secondary"
                                             size="icon"
@@ -330,6 +437,16 @@ export function ScenarioTab({ scenario, onGenerateStoryBoard, isLoading, onScena
                                         >
                                             <Upload className="h-4 w-4" />
                                             <span className="sr-only">Upload character image</span>
+                                        </Button>
+                                        <Button
+                                            variant="secondary"
+                                            size="icon"
+                                            className="bg-black/50 hover:bg-red-500 hover:text-white"
+                                            onClick={() => handleRemoveCharacter(index)}
+                                            disabled={generatingCharacterImages?.has(index)}
+                                        >
+                                            <X className="h-4 w-4" />
+                                            <span className="sr-only">Remove character</span>
                                         </Button>
                                     </div>
                                     <input
@@ -344,7 +461,6 @@ export function ScenarioTab({ scenario, onGenerateStoryBoard, isLoading, onScena
                                     />
                                 </div>
                                 <div className="flex-grow relative group">
-                                    <h4 className="text-lg font-semibold mb-2">{character.name}</h4>
                                     <div 
                                         ref={(el) => {
                                             characterEditingRefs.current[index] = el;
@@ -357,34 +473,59 @@ export function ScenarioTab({ scenario, onGenerateStoryBoard, isLoading, onScena
                                         {editingCharacterIndex !== index && characterHoverStates[index] && (
                                             <button
                                                 onClick={() => setEditingCharacterIndex(index)}
-                                                className="absolute top-2 right-2 p-2 rounded-full text-primary-foreground bg-primary/80 hover:bg-primary shadow-sm transition-all"
+                                                className="absolute top-0 right-2 p-2 rounded-full text-primary-foreground bg-primary/80 hover:bg-primary shadow-sm transition-all z-10"
                                             >
                                                 <Pencil className="h-4 w-4" />
                                             </button>
                                         )}
                                         {editingCharacterIndex === index ? (
-                                            <Textarea
-                                                value={editedCharacterDescriptions[index] || ''}
-                                                onChange={(e) => handleCharacterDescriptionChange(index, e.target.value)}
-                                                className="min-h-[100px] w-full"
-                                                placeholder="Enter character description..."
-                                                autoFocus
-                                            />
+                                            <div className="space-y-3">
+                                                <div>
+                                                    <label className="block text-sm font-medium mb-1">Character Name</label>
+                                                    <Input
+                                                        value={editedCharacterNames[index] || ''}
+                                                        onChange={(e) => handleCharacterNameChange(index, e.target.value)}
+                                                        placeholder="Enter character name..."
+                                                        autoFocus
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium mb-1">Character Description</label>
+                                                    <Textarea
+                                                        value={editedCharacterDescriptions[index] || ''}
+                                                        onChange={(e) => handleCharacterDescriptionChange(index, e.target.value)}
+                                                        className="min-h-[100px] w-full"
+                                                        placeholder="Enter character description..."
+                                                    />
+                                                </div>
+                                            </div>
                                         ) : (
-                                            <p className="whitespace-pre-wrap p-4 rounded-lg border border-transparent group-hover:border-gray-200 transition-colors">
-                                                {character.description}
-                                            </p>
+                                            <div>
+                                                <h4 className="text-lg font-semibold mb-2">{character.name}</h4>
+                                                <p className="whitespace-pre-wrap p-4 rounded-lg border border-transparent group-hover:border-gray-200 transition-colors">
+                                                    {character.description}
+                                                </p>
+                                            </div>
                                         )}
                                     </div>
                                 </div>
                             </div>
                         ))}
-                        <div className="col-span-1">
+                        <div className="col-span-1 flex justify-between items-center">
                             <h3 className="text-xl font-bold">Settings</h3>
+                            <Button
+                                onClick={handleAddSetting}
+                                variant="outline"
+                                size="sm"
+                                className="flex items-center gap-2"
+                            >
+                                <Plus className="h-4 w-4" />
+                                Add Setting
+                            </Button>
                         </div>
                         {scenario.settings.map((setting, index) => (
-                            <div key={setting.name} className="flex gap-4 items-start">
-                                <div className="flex-shrink-0 w-[200px] h-[200px] relative">
+                            <div key={index} className="flex gap-4 items-start">
+                                <div className="flex-shrink-0 w-[200px] h-[200px] relative group">
                                     {(localGeneratingSettings.has(index) || generatingSettings?.has(index)) && (
                                         <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-10 rounded-lg">
                                             <Loader2 className="h-8 w-8 text-white animate-spin" />
@@ -396,9 +537,20 @@ export function ScenarioTab({ scenario, onGenerateStoryBoard, isLoading, onScena
                                         className="object-cover rounded-lg shadow-md"
                                         sizes="200px"
                                     />
+                                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <Button
+                                            variant="secondary"
+                                            size="icon"
+                                            className="bg-black/50 hover:bg-red-500 hover:text-white"
+                                            onClick={() => handleRemoveSetting(index)}
+                                            disabled={localGeneratingSettings.has(index) || generatingSettings?.has(index)}
+                                        >
+                                            <X className="h-4 w-4" />
+                                            <span className="sr-only">Remove setting</span>
+                                        </Button>
+                                    </div>
                                 </div>
                                 <div className="flex-grow relative group">
-                                    <h4 className="text-lg font-semibold mb-2">{setting.name}</h4>
                                     <div 
                                         ref={(el) => {
                                             settingEditingRefs.current[index] = el;
@@ -411,23 +563,39 @@ export function ScenarioTab({ scenario, onGenerateStoryBoard, isLoading, onScena
                                         {editingSettingIndex !== index && settingHoverStates[index] && !localGeneratingSettings.has(index) && !generatingSettings?.has(index) && (
                                             <button
                                                 onClick={() => setEditingSettingIndex(index)}
-                                                className="absolute top-2 right-2 p-2 rounded-full text-primary-foreground bg-primary/80 hover:bg-primary shadow-sm transition-all"
+                                                className="absolute top-2 right-2 p-2 rounded-full text-primary-foreground bg-primary/80 hover:bg-primary shadow-sm transition-all z-10"
                                             >
                                                 <Pencil className="h-4 w-4" />
                                             </button>
                                         )}
                                         {editingSettingIndex === index ? (
-                                            <Textarea
-                                                value={editedSettingDescriptions[index] || ''}
-                                                onChange={(e) => handleSettingDescriptionChange(index, e.target.value)}
-                                                className="min-h-[100px] w-full"
-                                                placeholder="Enter setting description..."
-                                                autoFocus
-                                            />
+                                            <div className="space-y-3">
+                                                <div>
+                                                    <label className="block text-sm font-medium mb-1">Setting Name</label>
+                                                    <Input
+                                                        value={editedSettingNames[index] || ''}
+                                                        onChange={(e) => handleSettingNameChange(index, e.target.value)}
+                                                        placeholder="Enter setting name..."
+                                                        autoFocus
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium mb-1">Setting Description</label>
+                                                    <Textarea
+                                                        value={editedSettingDescriptions[index] || ''}
+                                                        onChange={(e) => handleSettingDescriptionChange(index, e.target.value)}
+                                                        className="min-h-[100px] w-full"
+                                                        placeholder="Enter setting description..."
+                                                    />
+                                                </div>
+                                            </div>
                                         ) : (
-                                            <p className="whitespace-pre-wrap p-4 rounded-lg border border-transparent group-hover:border-gray-200 transition-colors">
-                                                {setting.description}
-                                            </p>
+                                            <div>
+                                                <h4 className="text-lg font-semibold mb-2">{setting.name}</h4>
+                                                <p className="whitespace-pre-wrap p-4 rounded-lg border border-transparent group-hover:border-gray-200 transition-colors">
+                                                    {setting.description}
+                                                </p>
+                                            </div>
                                         )}
                                     </div>
                                 </div>
