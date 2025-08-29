@@ -3,7 +3,7 @@ import { GoogleGenAI, Part } from '@google/genai';
 
 const LOCATION = process.env.LOCATION
 const PROJECT_ID = process.env.PROJECT_ID
-const MODEL = process.env.MODEL
+const MODEL = "veo-3.0-generate-001" //process.env.MODEL
 const GCS_VIDEOS_STORAGE_URI = process.env.GCS_VIDEOS_STORAGE_URI
 
 

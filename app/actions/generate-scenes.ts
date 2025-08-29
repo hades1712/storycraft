@@ -2,10 +2,12 @@
 
 import { generateImageCustomizationRest, generateImageRest } from '@/lib/imagen';
 import { getScenarioPrompt, getScenesPrompt2 } from '@/app/prompts';
-import { generateContent } from '@/lib/gemini'
+import { generateContent, generateImage } from '@/lib/gemini'
 import { Type } from '@google/genai';
 import { imagePromptToString } from '@/lib/prompt-utils';
 import yaml from 'js-yaml'
+import { createPartFromUri, createPartFromText } from '@google/genai';
+import { getRAIUserMessage } from '@/lib/rai'
 
 import { Scenario, Language } from "../types"
 
@@ -67,7 +69,7 @@ export async function generateScenario(name: string, pitch: string, numScenes: n
           };
           const resultJson = await generateImageRest(yaml.dump(orderedPrompt, { indent: 2, lineWidth: -1 }), "1:1");
           if (resultJson.predictions[0].raiFilteredReason) {
-            throw new Error(resultJson.predictions[0].raiFilteredReason)
+            throw new Error(getRAIUserMessage(resultJson.predictions[0].raiFilteredReason))
           } else {
             console.log('Generated character image:', resultJson.predictions[0].gcsUri);
             return { ...character, imageGcsUri: resultJson.predictions[0].gcsUri };
@@ -88,7 +90,7 @@ export async function generateScenario(name: string, pitch: string, numScenes: n
             description: setting.description,
             //prohibited_elements: "people, characters, watermark, text overlay, warped face, floating limbs, distorted hands, blurry edges"
           };
-          const resultJson = await generateImageRest(yaml.dump(orderedPrompt, { indent: 2, lineWidth: -1 }), "1:1");
+          const resultJson = await generateImageRest(yaml.dump(orderedPrompt, { indent: 2, lineWidth: -1 }), "16:9");
           if (resultJson.predictions[0].raiFilteredReason) {
             throw new Error(resultJson.predictions[0].raiFilteredReason)
           } else {
@@ -290,27 +292,45 @@ export async function generateStoryboard(scenario: Scenario, numScenes: number, 
       try {
         console.log(`Generating image for scene ${index + 1}`);
         let resultJson;
-        const useR2I = false;
+        const useR2I = true;
         if (useR2I && scene.charactersPresent.length > 0) {
-          const presentCharacters = newScenario.characters.filter(character =>
-            scene.charactersPresent.includes(character.name)
+          const presentCharacters: Array<{ name: string, description: string, imageGcsUri?: string }> = newScenario.characters.filter(character =>
+            scene.imagePrompt.Subject.map(subject => subject.name).includes(character.name)
           );
-          if (presentCharacters.length > 0) {
-            console.log(`Using character customization for characters: ${presentCharacters.map(c => c.name).join(', ')}`);
-            resultJson = await generateImageCustomizationRest(imagePromptToString(scene.imagePrompt), presentCharacters);
-          } else {
-            console.warn(`Scene ${index + 1} listed characters [${scene.charactersPresent.join(', ')}] but no matching data found in charactersWithImages. Falling back to standard generation.`);
-            resultJson = await generateImageRest(imagePromptToString(scene.imagePrompt));
-          }
+          const settings: Array<{ name: string, description: string, imageGcsUri?: string }> = newScenario.settings.filter(setting =>
+            scene.imagePrompt.Context.map(context => context.name).includes(setting.name)
+          );
+          const imagePrompt = scene.imagePrompt
+          const orderedPrompt = {
+            Style: imagePrompt.Style,
+            Scene: imagePrompt.Scene,
+            Composition: {
+              shot_type: imagePrompt.Composition.shot_type,
+              lighting: imagePrompt.Composition.lighting,
+              overall_mood: imagePrompt.Composition.overall_mood
+            },
+          };
+          const prompt = yaml.dump(orderedPrompt, { indent: 2, lineWidth: -1 })
+          const characterParts = presentCharacters.flatMap(character => 
+            [createPartFromText(character.name), createPartFromUri(character.imageGcsUri!, 'image/png')]
+          )
+          const settingsParts = settings.flatMap(setting => 
+            [createPartFromText(setting.name), createPartFromUri(setting.imageGcsUri!, 'image/png')]
+          )
+          const imageGcsUri = await generateImage(
+            characterParts.concat(settingsParts).concat([createPartFromText(prompt)])
+          )
+          return { ...scene, imageGcsUri: imageGcsUri };
         } else {
           resultJson = await generateImageRest(imagePromptToString(scene.imagePrompt));
+          if (resultJson.predictions[0].raiFilteredReason) {
+            throw new Error(resultJson.predictions[0].raiFilteredReason)
+          } else {
+            console.log('Generated image:', resultJson.predictions[0].gcsUri);
+            return { ...scene, imageGcsUri: resultJson.predictions[0].gcsUri };
+          }
         }
-        if (resultJson.predictions[0].raiFilteredReason) {
-          throw new Error(resultJson.predictions[0].raiFilteredReason)
-        } else {
-          console.log('Generated image:', resultJson.predictions[0].gcsUri);
-          return { ...scene, imageGcsUri: resultJson.predictions[0].gcsUri };
-        }
+
       } catch (error) {
         console.error('Error generating image:', error);
         if (error instanceof Error) {

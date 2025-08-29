@@ -1,40 +1,80 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { generateImageRest } from '@/lib/imagen'
 import { imagePromptToString } from '@/lib/prompt-utils'
-import { ImagePrompt } from '@/app/types'
+import { Scenario, ImagePrompt } from '@/app/types'
+import yaml from 'js-yaml'
+import { createPartFromUri, createPartFromText } from '@google/genai';
+import { generateImage } from '@/lib/gemini'
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { prompt } = body
+    const { prompt, scenario } = body as { prompt: ImagePrompt, scenario: Scenario }
 
     if (!prompt) {
       return NextResponse.json({ error: 'Prompt is required' }, { status: 400 })
     }
 
+    const useR2I = true;
+
+
+
+
+    if (useR2I) {
+      const presentCharacters: Array<{ name: string, description: string, imageGcsUri?: string }> = scenario.characters.filter(character =>
+        prompt.Subject.map(subject => subject.name).includes(character.name)
+      );
+      const settings: Array<{ name: string, description: string, imageGcsUri?: string }> = scenario.settings.filter(setting =>
+        prompt.Context.map(context => context.name).includes(setting.name)
+      );
+      const orderedPrompt = {
+        Style: prompt.Style,
+        Scene: prompt.Scene,
+        Composition: {
+          shot_type: prompt.Composition.shot_type,
+          lighting: prompt.Composition.lighting,
+          overall_mood: prompt.Composition.overall_mood
+        },
+      };
+      const promptString = yaml.dump(orderedPrompt, { indent: 2, lineWidth: -1 })
+      const characterParts = presentCharacters.flatMap(character =>
+        [createPartFromText(character.name), createPartFromUri(character.imageGcsUri!, 'image/png')]
+      )
+      const settingsParts = settings.flatMap(setting =>
+        [createPartFromText(setting.name), createPartFromUri(setting.imageGcsUri!, 'image/png')]
+      )
+      const imageGcsUri = await generateImage(
+        characterParts.concat(settingsParts).concat([createPartFromText(promptString)])
+      )
+      return NextResponse.json({
+        success: true,
+        imageGcsUri: imageGcsUri
+      });
+    }
+
     // Convert structured prompt to string if needed
     const promptString = typeof prompt === 'string' ? prompt : imagePromptToString(prompt as ImagePrompt)
-    
+
     console.log('Regenerating image with prompt:', promptString)
-    
+
     const resultJson = await generateImageRest(promptString)
-    
+
     if (resultJson.predictions[0].raiFilteredReason) {
       throw new Error(resultJson.predictions[0].raiFilteredReason)
     } else {
       console.log('Generated image:', resultJson.predictions[0].gcsUri)
-      return NextResponse.json({ 
+      return NextResponse.json({
         success: true,
-        imageGcsUri: resultJson.predictions[0].gcsUri 
+        imageGcsUri: resultJson.predictions[0].gcsUri
       })
     }
   } catch (error) {
     console.error('Error regenerating image:', error)
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-    return NextResponse.json({ 
+    return NextResponse.json({
       success: false,
       error: 'Failed to regenerate image',
-      errorMessage 
+      errorMessage
     }, { status: 500 })
   }
 }
@@ -49,25 +89,25 @@ export async function PUT(request: NextRequest) {
     }
 
     console.log('Regenerating character image with prompt:', prompt)
-    
+
     const resultJson = await generateImageRest(prompt, "1:1", false)
-    
+
     if (resultJson.predictions[0].raiFilteredReason) {
       throw new Error(resultJson.predictions[0].raiFilteredReason)
     } else {
       console.log('Generated character image:', resultJson.predictions[0].gcsUri)
-      return NextResponse.json({ 
+      return NextResponse.json({
         success: true,
-        imageGcsUri: resultJson.predictions[0].gcsUri 
+        imageGcsUri: resultJson.predictions[0].gcsUri
       })
     }
   } catch (error) {
     console.error('Error regenerating character image:', error)
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-    return NextResponse.json({ 
+    return NextResponse.json({
       success: false,
       error: 'Failed to regenerate character image',
-      errorMessage 
+      errorMessage
     }, { status: 500 })
   }
 }

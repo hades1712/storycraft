@@ -47,6 +47,7 @@ export async function POST(req: Request): Promise<Response> {
           url = placeholderVideoUrls[Math.floor(Math.random() * placeholderVideoUrls.length)];
         } else {
           const promptString = typeof scene.videoPrompt === 'string' ? scene.videoPrompt : videoPromptToString(scene.videoPrompt);
+          console.log(promptString)
           const operationName = await generateSceneVideo(promptString, scene.imageGcsUri!);
           console.log(`Operation started for scene ${index + 1}`);
 

@@ -108,7 +108,7 @@ export default function Home() {
       const response = await fetch('/api/regenerate-image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: scene.imagePrompt }),
+        body: JSON.stringify({ prompt: scene.imagePrompt, scenario: scenario }),
       })
       
       const result = await response.json()

@@ -36,8 +36,8 @@ export function videoPromptToString(videoPrompt: VideoPrompt): string {
   const orderedPrompt = {
     Action: videoPrompt.Action,
     Camera_Motion: videoPrompt.Camera_Motion,
-    Ambiance_Audio: videoPrompt.Ambiance_Audio,
-    Dialogue: videoPrompt.Dialogue
+    Ambiance_Audio: videoPrompt.Ambiance_Audio + " No music. No music! No music whatsoever.",
+    Dialogue: videoPrompt.Dialogue.map(dialogue => dialogue.speaker + ": " + dialogue.line).join("."),
   };
   return yaml.dump(orderedPrompt, { indent: 2, lineWidth: -1 });
 }
