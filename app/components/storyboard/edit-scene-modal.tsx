@@ -19,9 +19,10 @@ interface EditSceneModalProps {
   sceneNumber: number;
   scenario: Scenario;
   onUpdate: (updatedScene: Scene) => void;
+  displayMode?: 'image' | 'video';
 }
 
-export function EditSceneModal({ isOpen, onClose, scene, sceneNumber, scenario, onUpdate }: EditSceneModalProps) {
+export function EditSceneModal({ isOpen, onClose, scene, sceneNumber, scenario, onUpdate, displayMode = 'image' }: EditSceneModalProps) {
   const [editedScene, setEditedScene] = useState(scene)
   const [activeTab, setActiveTab] = useState('general'); // 'general', 'image' or 'video'
 
@@ -176,7 +177,7 @@ export function EditSceneModal({ isOpen, onClose, scene, sceneNumber, scenario, 
           {/* Left side - Image/Video */}
           <div className="space-y-4">
             <div className="relative w-full h-[300px] overflow-hidden rounded-lg bg-muted">
-              {scene.videoUri ? (
+              {displayMode === 'video' && scene.videoUri ? (
                 <div className="absolute inset-0">
                   <VideoPlayer videoGcsUri={scene.videoUri} />
                 </div>

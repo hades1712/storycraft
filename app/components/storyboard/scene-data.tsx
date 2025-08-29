@@ -21,6 +21,7 @@ interface SceneDataProps {
   onRemoveScene: () => void;
   isGenerating: boolean;
   canDelete: boolean;
+  displayMode?: 'image' | 'video';
   hideControls?: boolean;
   isDragOver?: boolean;
   onDragStart?: (e: React.DragEvent) => void;
@@ -40,6 +41,7 @@ export function SceneData({
   onRemoveScene,
   isGenerating,
   canDelete,
+  displayMode = 'image',
   hideControls = false,
   isDragOver = false,
   onDragStart,
@@ -81,7 +83,7 @@ export function SceneData({
               <Loader2 className="h-8 w-8 text-white animate-spin" />
             </div>
           )}
-          {scene.videoUri ? (
+          {displayMode === 'video' && scene.videoUri ? (
             <div className="absolute inset-0">
               <VideoPlayer videoGcsUri={scene.videoUri} />
             </div>
@@ -183,6 +185,7 @@ export function SceneData({
         sceneNumber={sceneNumber}
         scenario={scenario}
         onUpdate={onUpdate}
+        displayMode={displayMode}
       />
     </Card>
   )

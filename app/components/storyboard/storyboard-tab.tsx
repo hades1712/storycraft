@@ -3,11 +3,12 @@
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
-import { Grid, List, Loader2, Presentation, Video, ChevronLeft, ChevronRight, Plus, Minus } from 'lucide-react'
+import { Grid, List, Loader2, Presentation, Video, ChevronLeft, ChevronRight, Plus, Minus, Image } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { Scene, Scenario, ImagePrompt, VideoPrompt } from "../../types"
 import { SceneData } from './scene-data'
 import { GcsImage } from '../ui/gcs-image'
+import { VideoPlayer } from '../video/video-player'
 
 function ImagePromptDisplay({ imagePrompt }: { imagePrompt: ImagePrompt }) {
   return (
@@ -76,6 +77,7 @@ function VideoPromptDisplay({ videoPrompt }: { videoPrompt: VideoPrompt }) {
 }
 
 type ViewMode = 'grid' | 'list' | 'slideshow'
+type DisplayMode = 'image' | 'video'
 
 interface StoryboardTabProps {
   scenario: Scenario
@@ -108,9 +110,11 @@ export function StoryboardTab({
 }: StoryboardTabProps) {
   const scenes = scenario.scenes
   const [viewMode, setViewMode] = useState<ViewMode>('grid')
+  const [displayMode, setDisplayMode] = useState<DisplayMode>('image')
   const [currentSlide, setCurrentSlide] = useState(0)
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
+  const [activeTabs, setActiveTabs] = useState<{ [key: number]: string }>({})
 
   // Handle current slide index when scenes change
   useEffect(() => {
@@ -118,6 +122,24 @@ export function StoryboardTab({
       setCurrentSlide(scenes.length - 1)
     }
   }, [scenes.length, currentSlide])
+
+  // Initialize active tabs for new scenes
+  useEffect(() => {
+    const newActiveTabs = { ...activeTabs }
+    scenes.forEach((_, index) => {
+      if (!newActiveTabs[index]) {
+        newActiveTabs[index] = 'general'
+      }
+    })
+    setActiveTabs(newActiveTabs)
+  }, [scenes.length])
+
+  const setActiveTab = (sceneIndex: number, tab: string) => {
+    setActiveTabs(prev => ({
+      ...prev,
+      [sceneIndex]: tab
+    }))
+  }
 
   const handleDragStart = (index: number) => (e: React.DragEvent) => {
     setDraggedIndex(index)
@@ -163,6 +185,7 @@ export function StoryboardTab({
                 onRemoveScene={() => onRemoveScene(index)}
                 isGenerating={generatingScenes.has(index)}
                 canDelete={scenes.length > 1}
+                displayMode={displayMode}
                 isDragOver={dragOverIndex === index}
                 onDragStart={handleDragStart(index)}
                 onDragEnd={handleDragEnd}
@@ -203,6 +226,7 @@ export function StoryboardTab({
                     onRemoveScene={() => onRemoveScene(index)}
                     isGenerating={generatingScenes.has(index)}
                     canDelete={scenes.length > 1}
+                    displayMode={displayMode}
                     hideControls
                     isDragOver={dragOverIndex === index}
                     onDragStart={handleDragStart(index)}
@@ -214,20 +238,90 @@ export function StoryboardTab({
                 <div className="w-2/3">
                   <div className="p-4 bg-card rounded-lg border h-full">
                     <h3 className="font-semibold mb-4 text-card-foreground">Scene {index + 1}</h3>
-                    <div className="space-y-4">
-                      <div>
-                        <h4 className="text-sm font-medium text-card-foreground mb-1">Image Prompt</h4>
-                        <ImagePromptDisplay imagePrompt={scene.imagePrompt} />
+                    
+                    {/* Tab Navigation */}
+                    <div className="flex border-b border-border mb-4">
+                      <div
+                        role="tab"
+                        tabIndex={0}
+                        onClick={() => setActiveTab(index, 'general')}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault()
+                            setActiveTab(index, 'general')
+                          }
+                        }}
+                        className={`px-3 py-2 text-sm font-medium border-b-2 transition-colors cursor-pointer select-none ${
+                          activeTabs[index] === 'general'
+                            ? 'border-primary text-primary'
+                            : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
+                        }`}
+                      >
+                        General
                       </div>
-                      <div>
-                        <h4 className="text-sm font-medium text-card-foreground mb-1">Video Prompt</h4>
-                        <VideoPromptDisplay videoPrompt={scene.videoPrompt} />
+                      <div
+                        role="tab"
+                        tabIndex={0}
+                        onClick={() => setActiveTab(index, 'image')}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault()
+                            setActiveTab(index, 'image')
+                          }
+                        }}
+                        className={`px-3 py-2 text-sm font-medium border-b-2 transition-colors cursor-pointer select-none ${
+                          activeTabs[index] === 'image'
+                            ? 'border-primary text-primary'
+                            : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
+                        }`}
+                      >
+                        Image Prompt
                       </div>
-                      <div>
-                        <h4 className="text-sm font-medium text-card-foreground mb-1">Voiceover</h4>
-                        <p className="text-sm text-card-foreground/80 whitespace-pre-wrap">{scene.voiceover}</p>
+                      <div
+                        role="tab"
+                        tabIndex={0}
+                        onClick={() => setActiveTab(index, 'video')}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault()
+                            setActiveTab(index, 'video')
+                          }
+                        }}
+                        className={`px-3 py-2 text-sm font-medium border-b-2 transition-colors cursor-pointer select-none ${
+                          activeTabs[index] === 'video'
+                            ? 'border-primary text-primary'
+                            : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
+                        }`}
+                      >
+                        Video Prompt
                       </div>
                     </div>
+                    
+                    {/* Tab Content */}
+                    {activeTabs[index] === 'general' && (
+                      <div className="space-y-4">
+                        <div>
+                          <h4 className="text-sm font-medium text-card-foreground mb-1">Description</h4>
+                          <p className="text-sm text-card-foreground/80 whitespace-pre-wrap">{scene.description}</p>
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-medium text-card-foreground mb-1">Voiceover</h4>
+                          <p className="text-sm text-card-foreground/80 whitespace-pre-wrap">{scene.voiceover}</p>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {activeTabs[index] === 'image' && (
+                      <div className="space-y-4">
+                        <ImagePromptDisplay imagePrompt={scene.imagePrompt} />
+                      </div>
+                    )}
+                    
+                    {activeTabs[index] === 'video' && (
+                      <div className="space-y-4">
+                        <VideoPromptDisplay videoPrompt={scene.videoPrompt} />
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -268,11 +362,17 @@ export function StoryboardTab({
         return (
           <div className="relative max-w-4xl mx-auto">
             <div className="aspect-video relative bg-black rounded-lg overflow-hidden max-h-[60vh] group">
-              <GcsImage
-                gcsUri={scenes[currentSlide].imageGcsUri || null}
-                alt={`Scene ${currentSlide + 1}`}
-                className="w-full h-full object-contain"
-              />
+              {displayMode === 'video' && scenes[currentSlide].videoUri ? (
+                <div className="absolute inset-0">
+                  <VideoPlayer videoGcsUri={scenes[currentSlide].videoUri} />
+                </div>
+              ) : (
+                <GcsImage
+                  gcsUri={scenes[currentSlide].imageGcsUri || null}
+                  alt={`Scene ${currentSlide + 1}`}
+                  className="w-full h-full object-contain"
+                />
+              )}
               <Button
                 variant="ghost"
                 size="icon"
@@ -338,43 +438,57 @@ export function StoryboardTab({
   return (
     <div className="space-y-8">
       <div className="flex justify-between items-center">
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => setViewMode('grid')}
-            className={cn(
-              "hover:bg-accent hover:text-accent-foreground",
-              viewMode === 'grid' && "bg-accent text-accent-foreground"
-            )}
-          >
-            <Grid className="h-4 w-4" />
-            <span className="sr-only">Grid view</span>
-          </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => setViewMode('list')}
-            className={cn(
-              "hover:bg-accent hover:text-accent-foreground",
-              viewMode === 'list' && "bg-accent text-accent-foreground"
-            )}
-          >
-            <List className="h-4 w-4" />
-            <span className="sr-only">List view</span>
-          </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => setViewMode('slideshow')}
-            className={cn(
-              "hover:bg-accent hover:text-accent-foreground",
-              viewMode === 'slideshow' && "bg-accent text-accent-foreground"
-            )}
-          >
-            <Presentation className="h-4 w-4" />
-            <span className="sr-only">Slideshow view</span>
-          </Button>
+        <div className="flex gap-2 items-center">
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setViewMode('grid')}
+              className={cn(
+                "hover:bg-accent hover:text-accent-foreground",
+                viewMode === 'grid' && "bg-accent text-accent-foreground"
+              )}
+            >
+              <Grid className="h-4 w-4" />
+              <span className="sr-only">Grid view</span>
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setViewMode('list')}
+              className={cn(
+                "hover:bg-accent hover:text-accent-foreground",
+                viewMode === 'list' && "bg-accent text-accent-foreground"
+              )}
+            >
+              <List className="h-4 w-4" />
+              <span className="sr-only">List view</span>
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setViewMode('slideshow')}
+              className={cn(
+                "hover:bg-accent hover:text-accent-foreground",
+                viewMode === 'slideshow' && "bg-accent text-accent-foreground"
+              )}
+            >
+              <Presentation className="h-4 w-4" />
+              <span className="sr-only">Slideshow view</span>
+            </Button>
+          </div>
+          
+          {/* Display Mode Slider */}
+          <div className="flex items-center gap-2 ml-4">
+            <Image className="h-4 w-4 text-muted-foreground" />
+            <div className="relative w-8 h-6 bg-muted rounded-full cursor-pointer" onClick={() => setDisplayMode(displayMode === 'image' ? 'video' : 'image')}>
+              <div className={cn(
+                "absolute top-1 w-4 h-4 bg-primary rounded-full transition-transform duration-200",
+                displayMode === 'video' ? "translate-x-3" : "translate-x-1"
+              )} />
+            </div>
+            <Video className="h-4 w-4 text-muted-foreground" />
+          </div>
         </div>
         <Button
           onClick={onGenerateAllVideos}
