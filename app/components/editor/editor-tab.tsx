@@ -8,6 +8,7 @@ import { AudioWaveform } from './audio-wave-form'
 import { MusicParams, MusicSelectionDialog } from './music-selection-dialog'
 import { VideoThumbnail } from './video-thumbnail'
 import { Voice, VoiceSelectionDialog } from './voice-selection-dialog'
+import { getDynamicImageUrl } from '@/app/actions/storageActions'
 
 interface EditorTabProps {
     scenario: Scenario
@@ -188,10 +189,12 @@ export function EditorTab({
                     const scene = scenario.scenes[i]
                     if (scene.videoUri) {
                         try {
+                            const result = await getDynamicImageUrl(scene.videoUri)
+                            const videoUrl = result!.url!
                             // Update the video layer item content directly
                             const videoItem = videoLayer.items[i]
                             if (videoItem) {
-                                videoItem.content = scene.videoUri
+                                videoItem.content = videoUrl
                             }
                         } catch (error) {
                             console.error(`Error resolving video URL for scene ${i}:`, error)
@@ -207,9 +210,8 @@ export function EditorTab({
                     const scene = scenario.scenes[i]
                     if (scene.voiceoverAudioUri) {
                         try {
-                            const url = typeof scene.voiceoverAudioUri === 'string'
-                                ? scene.voiceoverAudioUri
-                                : await scene.voiceoverAudioUri
+                            const result = await getDynamicImageUrl(scene.voiceoverAudioUri)
+                            const url = result!.url!
 
                             // Get the actual duration of the audio file
                             const duration = await getAudioDuration(url)
@@ -234,7 +236,8 @@ export function EditorTab({
                 // Only add music item if it exists in the scenario
                 if (scenario.musicUrl) {
                     try {
-                        const url = scenario.musicUrl || ''
+                        const result = await getDynamicImageUrl(scenario.musicUrl)
+                        const url = result!.url!
                         if (url) {
                             const duration = await getAudioDuration(url)
                             musicLayer.items = [{

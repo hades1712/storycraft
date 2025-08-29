@@ -1,11 +1,10 @@
-import { GetSignedUrlConfig, Storage } from '@google-cloud/storage';
+import { Storage } from '@google-cloud/storage';
 import * as fs from 'fs';
-import * as path from 'path';
 import { GoogleAuth } from 'google-auth-library';
+import * as path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { concatenateMusicWithFade } from './ffmpeg';
 
-const USE_SIGNED_URL = process.env.USE_SIGNED_URL === "true";
 const GCS_VIDEOS_STORAGE_URI = process.env.GCS_VIDEOS_STORAGE_URI || '';
 const LOCATION = process.env.LOCATION
 const PROJECT_ID = process.env.PROJECT_ID
@@ -67,7 +66,7 @@ export async function generateMusicRest(prompt: string): Promise<string> {
       // Decode base64 to buffer
       const audioBuffer = Buffer.from(audioContent, 'base64');
       const outputBuffer = await concatenateMusicWithFade(audioBuffer, 'mp3')
-      
+
 
       // Define the directory where you want to save the audio files
       const publicDir = path.join(process.cwd(), 'public');
@@ -82,34 +81,20 @@ export async function generateMusicRest(prompt: string): Promise<string> {
 
       // Return the relative file path (for serving the file)
       let musicUrl: string;
-      if (USE_SIGNED_URL) {
-        // Upload to GCS
-        console.log(`Upload result to GCS`);
-        const bucketName = GCS_VIDEOS_STORAGE_URI.replace("gs://", "").split("/")[0];
-        const destinationPath = path.join(GCS_VIDEOS_STORAGE_URI.replace(`gs://${bucketName}/`, ''), fileName);
-        const bucket = storage.bucket(bucketName);
-        const file = bucket.file(destinationPath);
+      // Upload to GCS
+      console.log(`Upload result to GCS`);
+      const bucketName = GCS_VIDEOS_STORAGE_URI.replace("gs://", "").split("/")[0];
+      const destinationPath = path.join(GCS_VIDEOS_STORAGE_URI.replace(`gs://${bucketName}/`, ''), fileName);
+      const bucket = storage.bucket(bucketName);
+      const file = bucket.file(destinationPath);
 
-        await file.save(outputBuffer, {
-          metadata: {
-            contentType: `audio/mpeg`, // Set the correct content type for MP3
-          }
-        });
+      await file.save(outputBuffer, {
+        metadata: {
+          contentType: `audio/mpeg`, // Set the correct content type for MP3
+        }
+      });
 
-        // Generate signed URLs
-        const options: GetSignedUrlConfig = {
-          version: 'v4',
-          action: 'read',
-          expires: Date.now() + 60 * 60 * 1000, // 1 hour expiration
-        };
-        [musicUrl] = await file.getSignedUrl(options);
-      } else {
-        // Write the audio content to a file
-        const filePath = path.join(outputDir, fileName);
-        fs.writeFileSync(filePath, outputBuffer);
-        musicUrl = filePath.split('public/')[1];
-      }
-      return musicUrl;
+      return file.cloudStorageURI.href;
     } catch (error) {
       if (attempt < maxRetries) {
         const baseDelay = initialDelay * Math.pow(2, attempt); // Exponential backoff

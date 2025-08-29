@@ -6,14 +6,14 @@ import { Download, Loader2 } from 'lucide-react'
 import { useState } from 'react'
 
 interface VideoTabProps {
-  videoUri: string | null
+  videoGcsUri: string | null
   vttUri: string | null
   isVideoLoading: boolean
   language: { name: string; code: string }
 }
 
 export function VideoTab({
-  videoUri,
+  videoGcsUri,
   vttUri,
   isVideoLoading,
   language
@@ -21,17 +21,19 @@ export function VideoTab({
   const [isDownloading, setIsDownloading] = useState(false)
 
   const handleDownload = async () => {
-    if (!videoUri) return
+    if (!videoGcsUri) return
 
     try {
       setIsDownloading(true)
       
-      // Create a temporary anchor element
+      // Note: For GCS URIs, we'd need to resolve to signed URL first
+      // This is a simplified version - in production you might want to 
+      // resolve the GCS URI to a signed URL for downloading
       const link = document.createElement('a')
-      link.href = videoUri
+      link.href = videoGcsUri
       
-      // Extract filename from URL or use a default name
-      const filename = videoUri.split('/').pop() || 'video.mp4'
+      // Extract filename from URI or use a default name
+      const filename = videoGcsUri.split('/').pop() || 'video.mp4'
       link.download = filename
       
       // Append to body, click, and remove
@@ -49,7 +51,7 @@ export function VideoTab({
     <div className="space-y-8">
       {/* Header with Download button */}
       <div className="flex justify-end">
-        {videoUri && (
+        {videoGcsUri && (
           <Button
             onClick={handleDownload}
             disabled={isDownloading}
@@ -70,9 +72,9 @@ export function VideoTab({
         )}
       </div>
 
-      {videoUri && (
+      {videoGcsUri && (
         <div className="mb-8">
-          <VideoPlayer src={videoUri} vttSrc={vttUri} language={language} />
+          <VideoPlayer videoGcsUri={videoGcsUri} vttSrc={vttUri} language={language} />
         </div>
       )}
     </div>

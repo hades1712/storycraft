@@ -60,7 +60,9 @@ export default function Home() {
   const [isGeneratingMusic, setIsGeneratingMusic] = useState(false)
   const [isGeneratingVoiceover, setIsGeneratingVoiceover] = useState(false)
   const [selectedVoice, setSelectedVoice] = useState<Voice | null>(null)
-  const FALLBACK_URL = "https://videos.pexels.com/video-files/4276282/4276282-hd_1920_1080_25fps.mp4"
+
+  const GCS_VIDEOS_STORAGE_URI = process.env.GCS_VIDEOS_STORAGE_URI;
+  const FALLBACK_URL = `${GCS_VIDEOS_STORAGE_URI}4276282-hd_1920_1080_25fps.mp4`
 
   // Scenario auto-save functionality
   const { saveScenarioDebounced, getCurrentScenarioId, setCurrentScenarioId, isAuthenticated } = useScenario()
@@ -898,7 +900,7 @@ export default function Home() {
 
         {activeTab === "video" && (
           <VideoTab
-            videoUri={videoUri}
+            videoGcsUri={videoUri}
             vttUri={vttUri}
             isVideoLoading={isVideoLoading}
             language={scenario?.language || DEFAULT_LANGUAGE}

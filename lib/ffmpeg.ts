@@ -8,7 +8,6 @@ import { v4 as uuidv4 } from 'uuid';
 import { Readable, Writable } from 'stream';
 import { spawn } from 'child_process'; // For running ffprobe against a buffer
 
-const USE_SIGNED_URL = process.env.USE_SIGNED_URL === "true";
 const GCS_VIDEOS_STORAGE_URI = process.env.GCS_VIDEOS_STORAGE_URI || '';
 
 const MOOD_MUSIC: { [key: string]: string } = {
@@ -49,179 +48,6 @@ export function signedUrlToGcsUri(signedUrl: string): string {
   } catch (error) {
     console.error('Error parsing signed URL:', error);
     return 'error';
-  }
-}
-
-export async function editVideo(
-  gcsVideoUris: string[],
-  speachAudioFiles: string[],
-  voiceoverTexts: string[],
-  withVoiceOver: boolean,
-  mood: string,
-  logoOverlay?: string
-): Promise<{ videoUrl: string; vttUrl?: string }> {
-  console.log(`Concatenate all videos`);
-  console.log(mood);
-  console.log(`logoOverlay ${logoOverlay}`)
-  const id = uuidv4();
-  const outputFileName = `${id}.mp4`;
-  const outputFileNameWithAudio = `${id}_with_audio.mp4`;
-  const outputFileNameWithVoiceover = `${id}_with_voiceover.mp4`;
-  const outputFileNameWithOverlay = `${id}_with_overlay.mp4`;
-  const vttFileName = `${id}.vtt`;
-  let finalOutputPath;
-  const storage = new Storage();
-  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'video-concat-'));
-  const concatenationList = path.join(tempDir, 'concat-list.txt');
-
-  try {
-    // Download all videos to local temp directory
-    console.log(`Download all videos`);
-    console.log(gcsVideoUris);
-    const localPaths = await Promise.all(
-      gcsVideoUris.map(async (signedUri, index) => {
-        let localPath: string;
-        if (USE_SIGNED_URL) {
-          const uri = signedUrlToGcsUri(signedUri);
-          const match = uri.match(/gs:\/\/([^\/]+)\/(.+)/);
-          if (!match) {
-            throw new Error(`Invalid GCS URI format: ${uri}`);
-          }
-
-          const [, bucket, filePath] = match;
-          localPath = path.join(tempDir, `video-${index}${path.extname(filePath)}`);
-
-          await storage
-            .bucket(bucket)
-            .file(filePath)
-            .download({ destination: localPath });
-        } else {
-          const publicDir = path.join(process.cwd(), 'public');
-          localPath = path.join(publicDir, signedUri);
-        }
-        return localPath;
-      })
-    );
-
-    // Create concatenation list file
-    const fileContent = localPaths
-      .map(path => `file '${path}'`)
-      .join('\n');
-    fs.writeFileSync(concatenationList, fileContent);
-
-
-    const writtenFileContent = await fs.readFileSync(concatenationList, 'utf8'); // 'utf8' for text files
-
-    // 3. Log the content
-    console.log(writtenFileContent);
-
-    // Concatenate videos using FFmpeg
-    console.log(`Concatenate videos using FFmpeg`);
-    const outputPath = path.join(tempDir, outputFileName);
-    await new Promise<void>((resolve, reject) => {
-      ffmpeg()
-        .input(concatenationList)
-        .inputOptions(['-f', 'concat', '-safe', '0'])
-        .output(outputPath)
-        .outputOptions('-c copy')
-        .on('end', () => resolve())
-        .on('error', (err) => reject(err))
-        .run();
-    });
-    finalOutputPath = outputPath;
-
-    const publicDir = path.join(process.cwd(), 'public');
-    const audioFile = path.join(publicDir, MOOD_MUSIC[mood]);
-    const outputPathWithAudio = path.join(tempDir, outputFileNameWithAudio);
-    const outputPathWithVoiceover = path.join(tempDir, outputFileNameWithVoiceover);
-    const outputPathWithOverlay = path.join(tempDir, outputFileNameWithOverlay);
-
-
-    if (withVoiceOver) {
-      // generate vtt subtitle file
-      const vttSubtitleFile = path.join(publicDir, vttFileName);
-      await generateVttSubtitleFile(speachAudioFiles, voiceoverTexts, vttSubtitleFile);
-    }
-
-    // Mix Voiceover and Music
-    let musicAudioFile = audioFile;
-    if (withVoiceOver) {
-      await mixAudioWithVoiceovers(speachAudioFiles, audioFile, outputPathWithVoiceover);
-      musicAudioFile = outputPathWithVoiceover;
-    }
-
-    // Adding an audio file
-    console.log(`Adding music`);
-    await addAudioToVideoWithFadeOut(outputPath, musicAudioFile, outputPathWithAudio)
-    finalOutputPath = outputPathWithAudio;
-
-    if (logoOverlay) {
-      // Add overlay
-      await addOverlayTopRight(
-        finalOutputPath,
-        path.join(publicDir, logoOverlay),
-        outputPathWithOverlay,
-      )
-      finalOutputPath = outputPathWithOverlay;
-    }
-
-    const publicFile = path.join(publicDir, outputFileNameWithVoiceover);
-    fs.copyFileSync(finalOutputPath, publicFile);
-    let videoUrl: string;
-    let vttUrl: string | undefined;
-
-    if (USE_SIGNED_URL) {
-      // Upload video to GCS
-      console.log(`Upload result to GCS`);
-      const bucketName = GCS_VIDEOS_STORAGE_URI.replace("gs://", "").split("/")[0];
-      const destinationPath = path.join(GCS_VIDEOS_STORAGE_URI.replace(`gs://${bucketName}/`, ''), outputFileName);
-      const bucket = storage.bucket(bucketName);
-
-      await bucket
-        .upload(finalOutputPath, {
-          destination: destinationPath,
-          metadata: {
-            contentType: 'video/mp4',
-          },
-        });
-
-      // Generate signed URLs
-      const options: GetSignedUrlConfig = {
-        version: 'v4',
-        action: 'read',
-        expires: Date.now() + 60 * 60 * 1000, // 1 hour expiration
-      };
-
-      const file = bucket.file(destinationPath);
-      [videoUrl] = await file.getSignedUrl(options);
-
-      if (withVoiceOver) {
-        // Upload VTT file to GCS
-        const vttDestinationPath = path.join(GCS_VIDEOS_STORAGE_URI.replace(`gs://${bucketName}/`, ''), vttFileName);
-        await bucket
-          .upload(path.join(publicDir, vttFileName), {
-            destination: vttDestinationPath,
-            metadata: {
-              contentType: 'text/vtt',
-            },
-          });
-        const vttFile = bucket.file(vttDestinationPath);
-        [vttUrl] = await vttFile.getSignedUrl(options);
-      }
-    } else {
-      videoUrl = outputFileNameWithVoiceover;
-      if (withVoiceOver) {
-        vttUrl = vttFileName;
-      }
-    }
-
-    console.log('videoUrl:', videoUrl);
-    if (vttUrl) console.log('vttUrl:', vttUrl);
-
-    return { videoUrl, vttUrl };
-  } finally {
-    // Clean up temporary files
-    fs.rmSync(tempDir, { recursive: true, force: true });
   }
 }
 
@@ -736,24 +562,19 @@ export async function exportMovie(
     const localPaths = await Promise.all(
       gcsVideoUris.map(async (signedUri, index) => {
         let localPath: string;
-        if (USE_SIGNED_URL) {
-          const uri = signedUrlToGcsUri(signedUri);
-          const match = uri.match(/gs:\/\/([^\/]+)\/(.+)/);
-          if (!match) {
-            throw new Error(`Invalid GCS URI format: ${uri}`);
-          }
-
-          const [, bucket, filePath] = match;
-          localPath = path.join(tempDir, `video-${index}${path.extname(filePath)}`);
-
-          await storage
-            .bucket(bucket)
-            .file(filePath)
-            .download({ destination: localPath });
-        } else {
-          const publicDir = path.join(process.cwd(), 'public');
-          localPath = path.join(publicDir, signedUri);
+        const uri = signedUrlToGcsUri(signedUri);
+        const match = uri.match(/gs:\/\/([^\/]+)\/(.+)/);
+        if (!match) {
+          throw new Error(`Invalid GCS URI format: ${uri}`);
         }
+
+        const [, bucket, filePath] = match;
+        localPath = path.join(tempDir, `video-${index}${path.extname(filePath)}`);
+
+        await storage
+          .bucket(bucket)
+          .file(filePath)
+          .download({ destination: localPath });
         return localPath;
       })
     );
@@ -772,23 +593,19 @@ export async function exportMovie(
     if (musicLayer && musicLayer.items.length > 0) {
       // Download music to local temp directory
       console.log(`Download music`);
-      if (USE_SIGNED_URL) {
-        const uri = signedUrlToGcsUri(musicLayer.items[0].content);
-        const match = uri.match(/gs:\/\/([^\/]+)\/(.+)/);
-        if (!match) {
-          throw new Error(`Invalid GCS URI format: ${uri}`);
-        }
-
-        const [, bucket, filePath] = match;
-        audioFile = path.join(tempDir, `music${path.extname(filePath)}`);
-
-        await storage
-          .bucket(bucket)
-          .file(filePath)
-          .download({ destination: audioFile });
-      } else {
-        audioFile = path.join(publicDir, musicLayer.items[0].content);
+      const uri = signedUrlToGcsUri(musicLayer.items[0].content);
+      const match = uri.match(/gs:\/\/([^\/]+)\/(.+)/);
+      if (!match) {
+        throw new Error(`Invalid GCS URI format: ${uri}`);
       }
+
+      const [, bucket, filePath] = match;
+      audioFile = path.join(tempDir, `music${path.extname(filePath)}`);
+
+      await storage
+        .bucket(bucket)
+        .file(filePath)
+        .download({ destination: audioFile });
     }
 
     // Mix Voiceover and Music
@@ -800,24 +617,19 @@ export async function exportMovie(
       const speachAudioFiles = await Promise.all(
         voiceoverLayer.items.map(async (item, index) => {
           let localPath: string;
-          if (USE_SIGNED_URL) {
-            const uri = signedUrlToGcsUri(item.content);
-            const match = uri.match(/gs:\/\/([^\/]+)\/(.+)/);
-            if (!match) {
-              throw new Error(`Invalid GCS URI format: ${uri}`);
-            }
-
-            const [, bucket, filePath] = match;
-            localPath = path.join(tempDir, `voiceover-${index}${path.extname(filePath)}`);
-
-            await storage
-              .bucket(bucket)
-              .file(filePath)
-              .download({ destination: localPath });
-          } else {
-            const publicDir = path.join(process.cwd(), 'public');
-            localPath = path.join(publicDir, item.content);
+          const uri = signedUrlToGcsUri(item.content);
+          const match = uri.match(/gs:\/\/([^\/]+)\/(.+)/);
+          if (!match) {
+            throw new Error(`Invalid GCS URI format: ${uri}`);
           }
+
+          const [, bucket, filePath] = match;
+          localPath = path.join(tempDir, `voiceover-${index}${path.extname(filePath)}`);
+
+          await storage
+            .bucket(bucket)
+            .file(filePath)
+            .download({ destination: localPath });
           return localPath;
         })
       );
@@ -832,58 +644,37 @@ export async function exportMovie(
     let videoUrl: string;
     let vttUrl: string | undefined;
 
-    if (USE_SIGNED_URL) {
-      // Upload video to GCS
-      console.log(`Upload result to GCS`);
-      const bucketName = GCS_VIDEOS_STORAGE_URI.replace("gs://", "").split("/")[0];
-      const destinationPath = path.join(GCS_VIDEOS_STORAGE_URI.replace(`gs://${bucketName}/`, ''), outputFileName);
-      const bucket = storage.bucket(bucketName);
+    // Upload video to GCS
+    console.log(`Upload result to GCS`);
+    const bucketName = GCS_VIDEOS_STORAGE_URI.replace("gs://", "").split("/")[0];
+    const destinationPath = path.join(GCS_VIDEOS_STORAGE_URI.replace(`gs://${bucketName}/`, ''), outputFileName);
+    const bucket = storage.bucket(bucketName);
 
-      await bucket
-        .upload(finalOutputPath, {
-          destination: destinationPath,
-          metadata: {
-            contentType: 'video/mp4',
-          },
-        });
+    await bucket
+      .upload(finalOutputPath, {
+        destination: destinationPath,
+        metadata: {
+          contentType: 'video/mp4',
+        },
+      });
 
-      // Generate signed URLs
-      const options: GetSignedUrlConfig = {
-        version: 'v4',
-        action: 'read',
-        expires: Date.now() + 60 * 60 * 1000, // 1 hour expiration
-      };
+    const file = bucket.file(destinationPath);
+    videoUrl = file.cloudStorageURI.href;
 
-      const file = bucket.file(destinationPath);
-      [videoUrl] = await file.getSignedUrl(options);
+    // if (voiceoverLayer) {
+    //   // Upload VTT file to GCS
+    //   const vttDestinationPath = path.join(GCS_VIDEOS_STORAGE_URI.replace(`gs://${bucketName}/`, ''), vttFileName);
+    //   await bucket
+    //     .upload(path.join(publicDir, vttFileName), {
+    //       destination: vttDestinationPath,
+    //       metadata: {
+    //         contentType: 'text/vtt',
+    //       },
+    //     });
+    //   const vttFile = bucket.file(vttDestinationPath);
+    //   [vttUrl] = await vttFile.getSignedUrl(options);
+    // }
 
-      // if (voiceoverLayer) {
-      //   // Upload VTT file to GCS
-      //   const vttDestinationPath = path.join(GCS_VIDEOS_STORAGE_URI.replace(`gs://${bucketName}/`, ''), vttFileName);
-      //   await bucket
-      //     .upload(path.join(publicDir, vttFileName), {
-      //       destination: vttDestinationPath,
-      //       metadata: {
-      //         contentType: 'text/vtt',
-      //       },
-      //     });
-      //   const vttFile = bucket.file(vttDestinationPath);
-      //   [vttUrl] = await vttFile.getSignedUrl(options);
-      // }
-    } else {
-      const moviesDir = path.join(publicDir, 'movies');
-      const publicFile = path.join(moviesDir, outputFileNameWithVoiceover);
-      
-      // Create the directory if it doesn't exist
-      if (!fs.existsSync(moviesDir)) {
-        fs.mkdirSync(moviesDir, { recursive: true });
-      }
-      fs.copyFileSync(finalOutputPath, publicFile);
-      videoUrl = 'movies/' + outputFileNameWithVoiceover;
-      // if (voiceoverLayer) {
-      //   vttUrl = vttFileName;
-      // }
-    }
 
     console.log('videoUrl:', videoUrl);
     if (vttUrl) console.log('vttUrl:', vttUrl);
@@ -908,114 +699,114 @@ export async function exportMovie(
  * @returns A Promise that resolves with the resulting audio Buffer, or rejects on error.
  */
 export async function concatenateMusicWithFade(
-    inputAudioBuffer: Buffer,
-    inputFormat: string,
-    fadeDuration: number = 2
+  inputAudioBuffer: Buffer,
+  inputFormat: string,
+  fadeDuration: number = 2
 ): Promise<Buffer> {
-    return new Promise<Buffer>(async (resolve, reject) => {
-        // --- Step 1: Get the duration of the input music buffer ---
-        let musicDuration: number;
-        try {
-            musicDuration = await getAudioDurationFromBuffer(inputAudioBuffer, inputFormat);
-            if (musicDuration <= 0) {
-                return reject(new Error('Could not determine music duration or duration is zero.'));
+  return new Promise<Buffer>(async (resolve, reject) => {
+    // --- Step 1: Get the duration of the input music buffer ---
+    let musicDuration: number;
+    try {
+      musicDuration = await getAudioDurationFromBuffer(inputAudioBuffer, inputFormat);
+      if (musicDuration <= 0) {
+        return reject(new Error('Could not determine music duration or duration is zero.'));
+      }
+    } catch (error) {
+      return reject(new Error(`Failed to get music duration from buffer: ${error}`));
+    }
+    console.log('musicDuration:', musicDuration);
+
+    const fadeOutStartTime = musicDuration - fadeDuration;
+
+    if (fadeOutStartTime < 0) {
+      return reject(new Error('Fade duration is longer than the music buffer duration. Adjust fadeDuration.'));
+    }
+
+    // Create a temporary directory for processing
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'audio-concat-'));
+    const tempInputPath = path.join(tempDir, `input.${inputFormat}`);
+    const tempOutputPath = path.join(tempDir, `output.mp3`);
+
+    try {
+      // Write input buffer to temporary file
+      fs.writeFileSync(tempInputPath, inputAudioBuffer);
+
+      // Run FFmpeg command
+      await new Promise<void>((resolve, reject) => {
+        ffmpeg(tempInputPath)
+          .complexFilter([
+            // Split the input into two streams
+            {
+              filter: 'asplit',
+              options: { outputs: 2 },
+              inputs: '[0:a]',
+              outputs: ['split1', 'split2']
+            },
+            // Apply fade-out to the first stream
+            {
+              filter: 'afade',
+              options: {
+                type: 'out',
+                start_time: fadeOutStartTime,
+                duration: fadeDuration,
+              },
+              inputs: 'split1',
+              outputs: 'faded1'
+            },
+            // Apply fade-in to the second stream
+            {
+              filter: 'afade',
+              options: {
+                type: 'in',
+                start_time: 0,
+                duration: fadeDuration,
+              },
+              inputs: 'split2',
+              outputs: 'faded2'
+            },
+            // Concatenate the two streams
+            {
+              filter: 'concat',
+              options: { n: 2, v: 0, a: 1 },
+              inputs: ['faded1', 'faded2'],
+              outputs: 'out'
             }
-        } catch (error) {
-            return reject(new Error(`Failed to get music duration from buffer: ${error}`));
-        }
-        console.log('musicDuration:', musicDuration);
+          ], 'out')
+          .outputOptions([
+            '-c:a libmp3lame',
+            '-q:a 2'
+          ])
+          .on('start', (commandLine: string) => {
+            console.log('FFmpeg process started with command:', commandLine);
+          })
+          .on('error', (err: Error, stdout: string | null, stderr: string | null) => {
+            console.error('FFmpeg error:', err.message);
+            console.error('FFmpeg stdout:', stdout);
+            console.error('FFmpeg stderr:', stderr);
+            reject(err);
+          })
+          .on('end', () => {
+            console.log('Concatenation finished.');
+            resolve();
+          })
+          .save(tempOutputPath);
+      });
 
-        const fadeOutStartTime = musicDuration - fadeDuration;
+      // Read the output file
+      const outputBuffer = fs.readFileSync(tempOutputPath);
+      resolve(outputBuffer);
 
-        if (fadeOutStartTime < 0) {
-            return reject(new Error('Fade duration is longer than the music buffer duration. Adjust fadeDuration.'));
-        }
-
-        // Create a temporary directory for processing
-        const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'audio-concat-'));
-        const tempInputPath = path.join(tempDir, `input.${inputFormat}`);
-        const tempOutputPath = path.join(tempDir, `output.mp3`);
-
-        try {
-            // Write input buffer to temporary file
-            fs.writeFileSync(tempInputPath, inputAudioBuffer);
-
-            // Run FFmpeg command
-            await new Promise<void>((resolve, reject) => {
-                ffmpeg(tempInputPath)
-                    .complexFilter([
-                        // Split the input into two streams
-                        {
-                            filter: 'asplit',
-                            options: { outputs: 2 },
-                            inputs: '[0:a]',
-                            outputs: ['split1', 'split2']
-                        },
-                        // Apply fade-out to the first stream
-                        {
-                            filter: 'afade',
-                            options: {
-                                type: 'out',
-                                start_time: fadeOutStartTime,
-                                duration: fadeDuration,
-                            },
-                            inputs: 'split1',
-                            outputs: 'faded1'
-                        },
-                        // Apply fade-in to the second stream
-                        {
-                            filter: 'afade',
-                            options: {
-                                type: 'in',
-                                start_time: 0,
-                                duration: fadeDuration,
-                            },
-                            inputs: 'split2',
-                            outputs: 'faded2'
-                        },
-                        // Concatenate the two streams
-                        {
-                            filter: 'concat',
-                            options: { n: 2, v: 0, a: 1 },
-                            inputs: ['faded1', 'faded2'],
-                            outputs: 'out'
-                        }
-                    ], 'out')
-                    .outputOptions([
-                        '-c:a libmp3lame',
-                        '-q:a 2'
-                    ])
-                    .on('start', (commandLine: string) => {
-                        console.log('FFmpeg process started with command:', commandLine);
-                    })
-                    .on('error', (err: Error, stdout: string | null, stderr: string | null) => {
-                        console.error('FFmpeg error:', err.message);
-                        console.error('FFmpeg stdout:', stdout);
-                        console.error('FFmpeg stderr:', stderr);
-                        reject(err);
-                    })
-                    .on('end', () => {
-                        console.log('Concatenation finished.');
-                        resolve();
-                    })
-                    .save(tempOutputPath);
-            });
-
-            // Read the output file
-            const outputBuffer = fs.readFileSync(tempOutputPath);
-            resolve(outputBuffer);
-
-        } catch (error) {
-            reject(error);
-        } finally {
-            // Clean up temporary files
-            try {
-                fs.rmSync(tempDir, { recursive: true, force: true });
-            } catch (cleanupErr) {
-                console.warn('Error cleaning up temp files:', cleanupErr);
-            }
-        }
-    });
+    } catch (error) {
+      reject(error);
+    } finally {
+      // Clean up temporary files
+      try {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+      } catch (cleanupErr) {
+        console.warn('Error cleaning up temp files:', cleanupErr);
+      }
+    }
+  });
 }
 
 /**
@@ -1027,57 +818,57 @@ export async function concatenateMusicWithFade(
  * @returns A Promise that resolves with the duration in seconds, or rejects on error.
  */
 function getAudioDurationFromBuffer(audioBuffer: Buffer, inputFormat: string): Promise<number> {
-    return new Promise((resolve, reject) => {
-        // Create a temporary file to store the buffer
-        const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'audio-duration-'));
-        const tempFilePath = path.join(tempDir, `temp_audio.${inputFormat}`);
+  return new Promise((resolve, reject) => {
+    // Create a temporary file to store the buffer
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'audio-duration-'));
+    const tempFilePath = path.join(tempDir, `temp_audio.${inputFormat}`);
 
+    try {
+      // Write buffer to temporary file
+      fs.writeFileSync(tempFilePath, audioBuffer);
+
+      // Use ffprobe on the temporary file instead of the buffer directly
+      ffmpeg.ffprobe(tempFilePath, (err, data) => {
+        // Clean up temp file and directory
         try {
-            // Write buffer to temporary file
-            fs.writeFileSync(tempFilePath, audioBuffer);
-
-            // Use ffprobe on the temporary file instead of the buffer directly
-            ffmpeg.ffprobe(tempFilePath, (err, data) => {
-                // Clean up temp file and directory
-                try {
-                    fs.rmSync(tempDir, { recursive: true, force: true });
-                } catch (cleanupErr) {
-                    console.warn('Error cleaning up temp files:', cleanupErr);
-                }
-
-                if (err) {
-                    return reject(new Error(`ffprobe failed: ${err.message}`));
-                }
-
-                // Try to get duration from format first
-                if (data.format && typeof data.format.duration === 'number') {
-                    return resolve(data.format.duration);
-                }
-
-                // Fallback: try to get duration from audio stream
-                const audioStream = data.streams.find(stream => stream.codec_type === 'audio');
-                if (audioStream && typeof audioStream.duration === 'number') {
-                    return resolve(audioStream.duration);
-                }
-
-                // If we still can't get duration, try to calculate it from sample rate and number of samples
-                if (audioStream && audioStream.sample_rate && audioStream.samples) {
-                    const duration = audioStream.samples / audioStream.sample_rate;
-                    if (duration > 0) {
-                        return resolve(duration);
-                    }
-                }
-
-                reject(new Error('Could not determine duration from ffprobe metadata.'));
-            });
-        } catch (error) {
-            // Clean up temp file and directory in case of error
-            try {
-                fs.rmSync(tempDir, { recursive: true, force: true });
-            } catch (cleanupErr) {
-                console.warn('Error cleaning up temp files:', cleanupErr);
-            }
-            reject(new Error(`Failed to process audio buffer: ${error}`));
+          fs.rmSync(tempDir, { recursive: true, force: true });
+        } catch (cleanupErr) {
+          console.warn('Error cleaning up temp files:', cleanupErr);
         }
-    });
+
+        if (err) {
+          return reject(new Error(`ffprobe failed: ${err.message}`));
+        }
+
+        // Try to get duration from format first
+        if (data.format && typeof data.format.duration === 'number') {
+          return resolve(data.format.duration);
+        }
+
+        // Fallback: try to get duration from audio stream
+        const audioStream = data.streams.find(stream => stream.codec_type === 'audio');
+        if (audioStream && typeof audioStream.duration === 'number') {
+          return resolve(audioStream.duration);
+        }
+
+        // If we still can't get duration, try to calculate it from sample rate and number of samples
+        if (audioStream && audioStream.sample_rate && audioStream.samples) {
+          const duration = audioStream.samples / audioStream.sample_rate;
+          if (duration > 0) {
+            return resolve(duration);
+          }
+        }
+
+        reject(new Error('Could not determine duration from ffprobe metadata.'));
+      });
+    } catch (error) {
+      // Clean up temp file and directory in case of error
+      try {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+      } catch (cleanupErr) {
+        console.warn('Error cleaning up temp files:', cleanupErr);
+      }
+      reject(new Error(`Failed to process audio buffer: ${error}`));
+    }
+  });
 }

@@ -47,22 +47,8 @@ export function SceneData({
   onDragOver,
   onDrop,
 }: SceneDataProps) {
-  const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    const getVideoUrl = async () => {
-      console.log('Video URL change!')
-      if (scene.videoUri) {
-        setVideoUrl(scene.videoUri);
-      } else {
-        setVideoUrl(null);
-      }
-    }
-
-    getVideoUrl();
-  }, [scene.videoUri]);
 
   const handleUploadClick = () => {
     fileInputRef.current?.click()
@@ -95,9 +81,9 @@ export function SceneData({
               <Loader2 className="h-8 w-8 text-white animate-spin" />
             </div>
           )}
-          {videoUrl ? (
+          {scene.videoUri ? (
             <div className="absolute inset-0">
-              <VideoPlayer src={videoUrl} />
+              <VideoPlayer videoGcsUri={scene.videoUri} />
             </div>
           ) : (
             <GcsImage

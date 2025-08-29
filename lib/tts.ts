@@ -1,10 +1,9 @@
-import { GetSignedUrlConfig, Storage } from '@google-cloud/storage';
+import { Storage } from '@google-cloud/storage';
 import textToSpeech, { protos } from '@google-cloud/text-to-speech';
 import * as fs from 'fs';
 import * as path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 
-const USE_SIGNED_URL = process.env.USE_SIGNED_URL === "true";
 const GCS_VIDEOS_STORAGE_URI = process.env.GCS_VIDEOS_STORAGE_URI || '';
 
 const storage = new Storage();
@@ -17,21 +16,21 @@ export async function tts(text: string, language: string, voiceName?: string): P
     languageCode: language,
   };
   const [response] = await client.listVoices(listVoicesRequest);
+  
   let selectedVoiceName: string | null | undefined;
   if (voiceName) {
     selectedVoiceName = voiceName;
   } else {
     selectedVoiceName = 'Algenib'
   }
-  
   // If no voice is specified, use the default selection logic
   if (selectedVoiceName && response.voices) {
     // choose the voice with the name that contains the selected voice
-    const voice = response.voices.find((voice) => voice.name?.includes(selectedVoiceName!));
+    const voice = response.voices.find((voice) => voice.name?.includes('Chirp3-HD-' + selectedVoiceName!));
     if (voice) {
       selectedVoiceName = voice.name;
     } else {
-      const charonVoice = response.voices.find((voice) => voice.name?.includes('Charon'));
+      const charonVoice = response.voices.find((voice) => voice.name?.includes('Chirp3-HD-Charon'));
       if (charonVoice) {
         selectedVoiceName = charonVoice.name;
       } else {
@@ -40,7 +39,7 @@ export async function tts(text: string, language: string, voiceName?: string): P
       }
     }
   }
-  
+
   console.log('Using voice:', selectedVoiceName);
   const request = {
     input: { text },
@@ -75,36 +74,20 @@ export async function tts(text: string, language: string, voiceName?: string): P
 
     // Return the relative file path (for serving the file)
     let voiceoverUrl: string;
-    if (USE_SIGNED_URL) {
-      // Upload video to GCS
-      console.log(`Upload result to GCS`);
-      const bucketName = GCS_VIDEOS_STORAGE_URI.replace("gs://", "").split("/")[0];
-      const destinationPath = path.join(GCS_VIDEOS_STORAGE_URI.replace(`gs://${bucketName}/`, ''), fileName);
-      const bucket = storage.bucket(bucketName);
-      const file = bucket.file(destinationPath);
+    // Upload video to GCS
+    console.log(`Upload result to GCS`);
+    const bucketName = GCS_VIDEOS_STORAGE_URI.replace("gs://", "").split("/")[0];
+    const destinationPath = path.join(GCS_VIDEOS_STORAGE_URI.replace(`gs://${bucketName}/`, ''), fileName);
+    const bucket = storage.bucket(bucketName);
+    const file = bucket.file(destinationPath);
 
 
-      await file.save(audioContent, {
-        metadata: {
-          contentType: `audio/mpeg`, // Set the correct content type
-        }
-      });
-
-      // Generate signed URLs
-      const options: GetSignedUrlConfig = {
-        version: 'v4',
-        action: 'read',
-        expires: Date.now() + 60 * 60 * 1000, // 1 hour expiration
-      };
-
-      [voiceoverUrl] = await file.getSignedUrl(options);
-    } else {
-      const filePath = path.join(outputDir, fileName);
-      // Write the audio content to a file
-      fs.writeFileSync(filePath, audioContent);
-      voiceoverUrl = filePath.split('public/')[1];
-    }
-    return voiceoverUrl;
+    await file.save(audioContent, {
+      metadata: {
+        contentType: `audio/mpeg`, // Set the correct content type
+      }
+    });
+    return file.cloudStorageURI.href;
   } catch (error) {
     console.error('Error in tts function:', error);
     throw error;

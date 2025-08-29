@@ -1,19 +1,17 @@
 import { Scene } from '@/app/types';
 import { videoPromptToString } from '@/lib/prompt-utils';
 import { generateSceneVideo, waitForOperation } from '@/lib/veo';
-import { GetSignedUrlConfig, Storage } from '@google-cloud/storage';
-import * as fs from 'fs/promises';
-import * as path from 'path';
+import { Storage } from '@google-cloud/storage';
 
 
-const USE_SIGNED_URL = process.env.USE_SIGNED_URL === "true";
 const USE_COSMO = process.env.USE_COSMO === "true";
+const GCS_VIDEOS_STORAGE_URI = process.env.GCS_VIDEOS_STORAGE_URI;
 
 const placeholderVideoUrls = [
-  'cosmo.mp4',
-  'dogs1.mp4',
-  'dogs2.mp4',
-  'cats1.mp4',
+  `${GCS_VIDEOS_STORAGE_URI}cosmo.mp4`,
+  `${GCS_VIDEOS_STORAGE_URI}dogs1.mp4`,
+  `${GCS_VIDEOS_STORAGE_URI}dogs2.mp4`,
+  `${GCS_VIDEOS_STORAGE_URI}cats1.mp4`,
 ];
 
 /**
@@ -61,30 +59,7 @@ export async function POST(req: Request): Promise<Response> {
           }
 
           const gcsUri = generateVideoResponse.response.videos[0].gcsUri;
-          const [bucketName, ...pathSegments] = gcsUri.replace("gs://", "").split("/");
-          const fileName = pathSegments.join("/");
-
-          if (USE_SIGNED_URL) {
-            const options: GetSignedUrlConfig = {
-              version: 'v4',
-              action: 'read',
-              expires: Date.now() + 60 * 60 * 1000,
-            };
-
-            // storage.bucket(bucketName).file(fileName).copy()
-
-            [url] = await storage.bucket(bucketName).file(fileName).getSignedUrl(options);
-          } else {
-            const publicDir = path.join(process.cwd(), 'public');
-            const videoFile = path.join(publicDir, fileName);
-            // Get the directory of the destination path
-            const destinationDir = path.dirname(videoFile);
-            // Create the destination directory if it doesn't exist (recursive)
-            await fs.mkdir(destinationDir, { recursive: true });
-
-            await storage.bucket(bucketName).file(fileName).download({ destination: videoFile });
-            url = fileName;
-          }
+          url = gcsUri;
         }
         console.log('Video Generated!', url)
         return url;

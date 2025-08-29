@@ -22,7 +22,6 @@ interface EditSceneModalProps {
 }
 
 export function EditSceneModal({ isOpen, onClose, scene, sceneNumber, scenario, onUpdate }: EditSceneModalProps) {
-  const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [editedScene, setEditedScene] = useState(scene)
   const [activeTab, setActiveTab] = useState('general'); // 'general', 'image' or 'video'
 
@@ -43,15 +42,6 @@ export function EditSceneModal({ isOpen, onClose, scene, sceneNumber, scenario, 
       setActiveTab('general') // Reset to general tab when modal opens
     }
   }, [isOpen])
-
-  useEffect(() => {
-    const getVideoUrl = async () => {
-      if (scene.videoUri) {
-        setVideoUrl(scene.videoUri);
-      }
-    }
-    getVideoUrl();
-  }, [scene.videoUri]);
 
   const updateImagePrompt = (field: keyof ImagePrompt, value: any) => {
     setEditedScene(prev => ({
@@ -186,9 +176,9 @@ export function EditSceneModal({ isOpen, onClose, scene, sceneNumber, scenario, 
           {/* Left side - Image/Video */}
           <div className="space-y-4">
             <div className="relative w-full h-[300px] overflow-hidden rounded-lg bg-muted">
-              {videoUrl ? (
+              {scene.videoUri ? (
                 <div className="absolute inset-0">
-                  <VideoPlayer src={videoUrl} />
+                  <VideoPlayer videoGcsUri={scene.videoUri} />
                 </div>
               ) : (
                 <GcsImage
