@@ -3,13 +3,14 @@
 import { getMimeTypeFromGCS, getSignedUrlFromGCS, uploadImage } from '@/lib/storage';
 import { unstable_cache as cache } from 'next/cache';
 import { v4 as uuidv4 } from 'uuid';
+import logger from '../logger';
 
 // Define a cached version of the URL fetching logic
 const getCachedSignedUrl = cache(
   async (gcsUri: string): Promise<{ url: string | null; mimeType: string | null; }> => {
-    console.log(`CACHE MISS: Fetching signed URL for ${gcsUri}`);
+    logger.debug(`CACHE MISS: Fetching signed URL for ${gcsUri}`);
     if (!gcsUri || !gcsUri.startsWith('gs://')) {
-      console.error("Invalid GCS URI passed to cached function:", gcsUri);
+      logger.error("Invalid GCS URI passed to cached function:", gcsUri);
       return { url: null, mimeType: null }; 
     }
     try {
@@ -19,7 +20,7 @@ const getCachedSignedUrl = cache(
       const url = await getSignedUrlFromGCS(gcsUri);
       return { url, mimeType }  ;
     } catch (error) {
-      console.error(`Error getting signed URL for ${gcsUri} inside cache function:`, error);
+      logger.error(`Error getting signed URL for ${gcsUri} inside cache function:`, error);
       return { url: null, mimeType: null };  // Return null on error
     }
   },
@@ -39,7 +40,7 @@ const getCachedSignedUrl = cache(
  */
 export async function getDynamicImageUrl(gcsUri: string): Promise<{ url: string | null; mimeType: string | null; }> {
   // Call the cached function
-  console.log('getDynamicImageUrl', gcsUri);
+  logger.debug('getDynamicImageUrl', gcsUri);
   return getCachedSignedUrl(gcsUri);
 }
 

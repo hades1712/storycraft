@@ -7,6 +7,7 @@ import * as path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { Readable, Writable } from 'stream';
 import { spawn } from 'child_process'; // For running ffprobe against a buffer
+import logger from '@/app/logger';
 
 const GCS_VIDEOS_STORAGE_URI = process.env.GCS_VIDEOS_STORAGE_URI || '';
 
@@ -46,7 +47,7 @@ export function signedUrlToGcsUri(signedUrl: string): string {
     // Construct GCS URI
     return `gs://${bucket}/${path}`;
   } catch (error) {
-    console.error('Error parsing signed URL:', error);
+    logger.error('Error parsing signed URL:', error);
     return 'error';
   }
 }
@@ -60,14 +61,14 @@ async function addAudioToVideoWithFadeOut(
     // 1. Get Video Duration and check for audio track using ffprobe
     ffmpeg.ffprobe(videoPath, (err, metadata) => {
       if (err) {
-        console.error('Error getting video metadata:', err);
+        logger.error('Error getting video metadata:', err);
         reject(err);
         return;
       }
 
       const videoDuration = metadata.format.duration;
       if (videoDuration === undefined) {
-        console.error('Error getting video duration');
+        logger.error('Error getting video duration');
         reject(new Error('Could not determine video duration'));
         return;
       }
@@ -116,11 +117,11 @@ async function addAudioToVideoWithFadeOut(
         ])
         .output(outputPath)
         .on('end', () => {
-          console.log('Successfully added audio to video with fade-out!');
+          logger.debug('Successfully added audio to video with fade-out!');
           resolve();
         })
         .on('error', (err) => {
-          console.error('Error adding audio to video:', err);
+          logger.error('Error adding audio to video:', err);
           reject(err);
         })
         .run();
@@ -135,17 +136,17 @@ async function addOverlayTopRight(
   margin: number = 10,
   overlayScale: number = 0.15 // Default to 15% of video width
 ): Promise<void> {
-  console.log('Starting video processing...');
-  console.log(`  Input Video: ${videoInputPath}`);
-  console.log(`  Overlay Image: ${imageInputPath}`);
-  console.log(`  Output Video: ${outputPath}`);
-  console.log(`  Margin: ${margin}px`);
-  console.log(`  Overlay Scale: ${overlayScale * 100}% of video width`);
+  logger.debug('Starting video processing...');
+  logger.debug(`  Input Video: ${videoInputPath}`);
+  logger.debug(`  Overlay Image: ${imageInputPath}`);
+  logger.debug(`  Output Video: ${outputPath}`);
+  logger.debug(`  Margin: ${margin}px`);
+  logger.debug(`  Overlay Scale: ${overlayScale * 100}% of video width`);
 
   return new Promise((resolve, reject) => {
     ffmpeg.ffprobe(videoInputPath, (err, metadata) => {
       if (err) {
-        console.error('Error getting video metadata:', err);
+        logger.error('Error getting video metadata:', err);
         return reject(err);
       }
 
@@ -157,8 +158,8 @@ async function addOverlayTopRight(
       const videoWidth = videoStream.width;
       const overlayWidth = Math.round(videoWidth * overlayScale);
 
-      console.log(`  Video dimensions: ${videoWidth}x${videoStream.height}`);
-      console.log(`  Overlay width: ${overlayWidth}px (scaled)`);
+      logger.debug(`  Video dimensions: ${videoWidth}x${videoStream.height}`);
+      logger.debug(`  Overlay width: ${overlayWidth}px (scaled)`);
 
       ffmpeg()
         .input(videoInputPath)
@@ -194,24 +195,24 @@ async function addOverlayTopRight(
           '-pix_fmt yuv420p'
         ])
         .on('start', (commandLine) => {
-          console.log('Spawned FFmpeg command: ' + commandLine);
+          logger.debug('Spawned FFmpeg command: ' + commandLine);
         })
         .on('progress', (progress) => {
           if (progress.percent) {
-            console.log(`Processing: ${Math.floor(progress.percent)}% done`);
+            logger.debug(`Processing: ${Math.floor(progress.percent)}% done`);
           } else if (progress.timemark) {
-            console.log(`Processing: Time mark ${progress.timemark}`);
+            logger.debug(`Processing: Time mark ${progress.timemark}`);
           }
         })
         .on('error', (err, stdout, stderr) => {
-          console.error('Error processing video:', err.message);
-          console.error('ffmpeg stdout:', stdout);
-          console.error('ffmpeg stderr:', stderr);
+          logger.error('Error processing video:', err.message);
+          logger.error('ffmpeg stdout:', stdout);
+          logger.error('ffmpeg stderr:', stderr);
           reject(err);
         })
         .on('end', (stdout, stderr) => {
-          console.log(`Video processing finished successfully!`);
-          console.log(`Output saved to: ${outputPath}`);
+          logger.debug(`Video processing finished successfully!`);
+          logger.debug(`Output saved to: ${outputPath}`);
           resolve();
         })
         .save(outputPath);
@@ -250,17 +251,17 @@ export async function mixAudioWithVoiceovers(
 
   // Handle case with no voiceovers: just copy the music file
   if (!speechAudioFiles || speechAudioFiles.length === 0) {
-    console.warn("No speech audio files provided. Copying music file as output.");
+    logger.warn("No speech audio files provided. Copying music file as output.");
     return new Promise<void>((resolve, reject) => {
       ffmpeg(musicAudioFile)
         .outputOptions('-c:a copy') // Copy codec without re-encoding
         .on('error', (err: Error) => {
           const errorMessage = `Error copying music file ${musicAudioFile} to ${outputAudioPath}: ${err.message}`;
-          console.error(errorMessage);
+          logger.error(errorMessage);
           reject(new Error(errorMessage));
         })
         .on('end', () => {
-          console.log(`Music file copied to ${outputAudioPath}`);
+          logger.debug(`Music file copied to ${outputAudioPath}`);
           resolve();
         })
         .save(outputAudioPath);
@@ -268,11 +269,11 @@ export async function mixAudioWithVoiceovers(
   }
 
   try {
-    console.log('Fetching voiceover durations...');
+    logger.debug('Fetching voiceover durations...');
     const voiceoverDurations: number[] = await Promise.all(
       speechAudioFiles.map((voPath: string) => getAudioDuration(voPath))
     );
-    console.log('Voiceover durations:', voiceoverDurations);
+    logger.debug('Voiceover durations:', voiceoverDurations);
 
     const command = ffmpeg();
 
@@ -334,14 +335,14 @@ export async function mixAudioWithVoiceovers(
     } else if (outputExtension === '.wav') {
       command.outputOptions('-c:a pcm_s16le'); // Uncompressed WAV (single option string is fine)
     } else {
-      console.warn(`Unknown output extension ${outputExtension}. Using libmp3lame audio codec by default.`);
+      logger.warn(`Unknown output extension ${outputExtension}. Using libmp3lame audio codec by default.`);
       command.outputOptions(['-c:a libmp3lame', '-q:a 2']);
     }
 
     return new Promise<void>((resolve, reject) => {
       command
         .on('start', (commandLine: string) => {
-          console.log('Spawned FFmpeg with command: ' + commandLine);
+          logger.debug('Spawned FFmpeg with command: ' + commandLine);
         })
         .on('progress', (progress: {
           frames: number;
@@ -352,23 +353,23 @@ export async function mixAudioWithVoiceovers(
           percent?: number | undefined;
         }) => {
           if (typeof progress.percent === 'number') { // Check if percent is a number
-            console.log(`Processing: ${progress.percent.toFixed(2)}% done`);
+            logger.debug(`Processing: ${progress.percent.toFixed(2)}% done`);
           } else if (progress.timemark) {
-            console.log(`Processing at: ${progress.timemark}`); // Fallback to timemark
+            logger.debug(`Processing at: ${progress.timemark}`); // Fallback to timemark
           }
         })
         .on('error', (err: Error, stdout: string | null, stderr: string | null) => {
           const errorMessage = `Error processing audio: ${err.message}\nFFmpeg stdout: ${stdout?.toString()}\nFFmpeg stderr: ${stderr?.toString()}`;
-          console.error(errorMessage);
+          logger.error(errorMessage);
           reject(new Error(errorMessage));
         })
         .on('end', (stdout: string | null, stderr: string | null) => {
-          console.log(`Audio mixing finished successfully. Output: ${outputAudioPath}`);
+          logger.debug(`Audio mixing finished successfully. Output: ${outputAudioPath}`);
           const stdOutput = stdout?.toString();
           const stdError = stderr?.toString();
-          if (stdOutput) console.log('ffmpeg stdout:', stdOutput);
+          if (stdOutput) logger.debug('ffmpeg stdout:', stdOutput);
           // stderr can contain informational messages as well, not just errors
-          if (stdError) console.log('ffmpeg stderr:', stdError);
+          if (stdError) logger.debug('ffmpeg stderr:', stdError);
           resolve();
         })
         .save(outputAudioPath);
@@ -382,7 +383,7 @@ export async function mixAudioWithVoiceovers(
     } else if (typeof error === 'string') {
       errorMessage = `Failed to mix audio: ${error}`;
     }
-    console.error(errorMessage, error); // Log original error object for more context
+    logger.error(errorMessage, error); // Log original error object for more context
     throw new Error(errorMessage); // Re-throw as a standard Error object
   }
 }
@@ -442,7 +443,7 @@ async function concatenateVideos(
     const hasAudio = await new Promise<boolean>((resolve) => {
       ffmpeg.ffprobe(path, (err, metadata) => {
         if (err) {
-          console.error(`Error probing ${path}:`, err);
+          logger.error(`Error probing ${path}:`, err);
           resolve(false); // Assume no audio and attempt to get duration later
           return;
         }
@@ -469,7 +470,7 @@ async function concatenateVideos(
     } else {
       if (parseFloat(videoDurationSecs) <= 0) {
         // Fallback if duration couldn't be read, log and use a default or error
-        console.warn(`Could not determine duration for ${path}, using default of 1s for silent audio. This might cause issues.`);
+        logger.warn(`Could not determine duration for ${path}, using default of 1s for silent audio. This might cause issues.`);
         videoDurationSecs = "1"; // Or handle as an error
       }
       // For videos without audio, create a silent audio stream with explicit duration
@@ -501,27 +502,27 @@ async function concatenateVideos(
   await new Promise<void>((resolve, reject) => {
     command
       .on('start', (commandLine) => {
-        console.log('FFmpeg command:', commandLine);
+        logger.debug('FFmpeg command:', commandLine);
         // Verify the command doesn't have duplicate mappings
         if (commandLine.includes('-map [outv] -map [outa] -map [outv] -map [outa]')) {
-          console.error('Command contains duplicate stream mappings');
+          logger.error('Command contains duplicate stream mappings');
           reject(new Error('Invalid command: duplicate stream mappings'));
           return;
         }
       })
       .on('progress', (progress) => {
         if (progress.percent) {
-          console.log(`Processing: ${Math.floor(progress.percent)}% done`);
+          logger.debug(`Processing: ${Math.floor(progress.percent)}% done`);
         }
       })
       .on('end', () => {
-        console.log('Video concatenation completed');
+        logger.debug('Video concatenation completed');
         resolve();
       })
       .on('error', (err, stdout, stderr) => {
-        console.error('Error during video concatenation:', err);
-        console.error('FFmpeg stdout:', stdout);
-        console.error('FFmpeg stderr:', stderr);
+        logger.error('Error during video concatenation:', err);
+        logger.error('FFmpeg stdout:', stdout);
+        logger.error('FFmpeg stderr:', stderr);
         reject(err);
       })
       .run();
@@ -531,8 +532,8 @@ async function concatenateVideos(
 export async function exportMovie(
   layers: TimelineLayer[],
 ): Promise<{ videoUrl: string; vttUrl?: string }> {
-  console.log(`Export Movie`);
-  console.log(layers)
+  logger.debug(`Export Movie`);
+  logger.debug(layers)
 
   const id = uuidv4();
   const outputFileName = `${id}.mp4`;
@@ -557,8 +558,8 @@ export async function exportMovie(
 
   try {
     // Download all videos to local temp directory
-    console.log(`Download all videos`);
-    console.log(gcsVideoUris);
+    logger.debug(`Download all videos`);
+    logger.debug(gcsVideoUris);
     const localPaths = await Promise.all(
       gcsVideoUris.map(async (signedUri, index) => {
         let localPath: string;
@@ -582,17 +583,17 @@ export async function exportMovie(
 
 
     // Concatenate videos using FFmpeg concat filter
-    console.log(`Concatenate videos using FFmpeg concat filter`);
+    logger.debug(`Concatenate videos using FFmpeg concat filter`);
     const outputPath = path.join(tempDir, outputFileName);
     await concatenateVideos(localPaths, outputPath);
     finalOutputPath = outputPath;
-    console.log(`Concatenate videos done`);
+    logger.debug(`Concatenate videos done`);
     const outputPathWithAudio = path.join(tempDir, outputFileNameWithAudio);
     const outputPathWithVoiceover = path.join(tempDir, outputFileNameWithVoiceover);
     let audioFile = path.join(publicDir, MOOD_MUSIC['Happy']);
     if (musicLayer && musicLayer.items.length > 0) {
       // Download music to local temp directory
-      console.log(`Download music`);
+      logger.debug(`Download music`);
       const uri = signedUrlToGcsUri(musicLayer.items[0].content);
       const match = uri.match(/gs:\/\/([^\/]+)\/(.+)/);
       if (!match) {
@@ -609,11 +610,11 @@ export async function exportMovie(
     }
 
     // Mix Voiceover and Music
-    console.log(`Mix Voiceover and Music`);
+    logger.debug(`Mix Voiceover and Music`);
     let musicAudioFile = audioFile;
     if (voiceoverLayer) {
       // Download all videos to local temp directory
-      console.log(`Download all voiceovers`);
+      logger.debug(`Download all voiceovers`);
       const speachAudioFiles = await Promise.all(
         voiceoverLayer.items.map(async (item, index) => {
           let localPath: string;
@@ -638,14 +639,14 @@ export async function exportMovie(
     }
 
     // Adding an audio file
-    console.log(`Adding music`);
+    logger.debug(`Adding music`);
     await addAudioToVideoWithFadeOut(outputPath, musicAudioFile, outputPathWithAudio)
     finalOutputPath = outputPathWithAudio;
     let videoUrl: string;
     let vttUrl: string | undefined;
 
     // Upload video to GCS
-    console.log(`Upload result to GCS`);
+    logger.debug(`Upload result to GCS`);
     const bucketName = GCS_VIDEOS_STORAGE_URI.replace("gs://", "").split("/")[0];
     const destinationPath = path.join(GCS_VIDEOS_STORAGE_URI.replace(`gs://${bucketName}/`, ''), outputFileName);
     const bucket = storage.bucket(bucketName);
@@ -676,12 +677,12 @@ export async function exportMovie(
     // }
 
 
-    console.log('videoUrl:', videoUrl);
-    if (vttUrl) console.log('vttUrl:', vttUrl);
+    logger.debug('videoUrl:', videoUrl);
+    if (vttUrl) logger.debug('vttUrl:', vttUrl);
 
     return { videoUrl, vttUrl };
   } catch (error) {
-    console.error('Error exporting movie:', error)
+    logger.error('Error exporting movie:', error)
     throw new Error(`Failed to movie: ${error instanceof Error ? error.message : 'Unknown error'}`)
   } finally {
     // Clean up temporary files
@@ -714,7 +715,7 @@ export async function concatenateMusicWithFade(
     } catch (error) {
       return reject(new Error(`Failed to get music duration from buffer: ${error}`));
     }
-    console.log('musicDuration:', musicDuration);
+    logger.debug('musicDuration:', musicDuration);
 
     const fadeOutStartTime = musicDuration - fadeDuration;
 
@@ -777,16 +778,16 @@ export async function concatenateMusicWithFade(
             '-q:a 2'
           ])
           .on('start', (commandLine: string) => {
-            console.log('FFmpeg process started with command:', commandLine);
+            logger.debug('FFmpeg process started with command:', commandLine);
           })
           .on('error', (err: Error, stdout: string | null, stderr: string | null) => {
-            console.error('FFmpeg error:', err.message);
-            console.error('FFmpeg stdout:', stdout);
-            console.error('FFmpeg stderr:', stderr);
+            logger.error('FFmpeg error:', err.message);
+            logger.error('FFmpeg stdout:', stdout);
+            logger.error('FFmpeg stderr:', stderr);
             reject(err);
           })
           .on('end', () => {
-            console.log('Concatenation finished.');
+            logger.debug('Concatenation finished.');
             resolve();
           })
           .save(tempOutputPath);
@@ -803,7 +804,7 @@ export async function concatenateMusicWithFade(
       try {
         fs.rmSync(tempDir, { recursive: true, force: true });
       } catch (cleanupErr) {
-        console.warn('Error cleaning up temp files:', cleanupErr);
+        logger.warn('Error cleaning up temp files:', cleanupErr);
       }
     }
   });
@@ -833,7 +834,7 @@ function getAudioDurationFromBuffer(audioBuffer: Buffer, inputFormat: string): P
         try {
           fs.rmSync(tempDir, { recursive: true, force: true });
         } catch (cleanupErr) {
-          console.warn('Error cleaning up temp files:', cleanupErr);
+          logger.warn('Error cleaning up temp files:', cleanupErr);
         }
 
         if (err) {
@@ -866,7 +867,7 @@ function getAudioDurationFromBuffer(audioBuffer: Buffer, inputFormat: string): P
       try {
         fs.rmSync(tempDir, { recursive: true, force: true });
       } catch (cleanupErr) {
-        console.warn('Error cleaning up temp files:', cleanupErr);
+        logger.warn('Error cleaning up temp files:', cleanupErr);
       }
       reject(new Error(`Failed to process audio buffer: ${error}`));
     }

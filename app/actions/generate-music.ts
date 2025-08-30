@@ -1,15 +1,16 @@
 'use server'
 
 import { generateMusicRest } from '@/lib/lyria';
+import logger from '../logger';
 
 export async function generateMusic(prompt: string): Promise<string> {
-  console.log('Genrating music')
+  logger.debug('Genrating music')
   try {
     const musicUrl = await generateMusicRest(prompt)
-    console.log('Music generated!')
+    logger.debug('Music generated!')
     return musicUrl; 
   } catch (error) {
-    console.error('Error generating music:', error)
+    logger.error('Error generating music:', error)
     throw new Error(`Failed to music: ${error instanceof Error ? error.message : 'Unknown error'}`)
   }
 }

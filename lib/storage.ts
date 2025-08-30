@@ -1,5 +1,6 @@
 import { GetSignedUrlConfig, Storage } from '@google-cloud/storage';
 import sharp from 'sharp';
+import logger from '@/app/logger';
 
 // Initialize storage
 const storage = new Storage({
@@ -11,13 +12,13 @@ const storageUri = process.env.GCS_VIDEOS_STORAGE_URI; // Make sure this env var
 
 export async function uploadImage(base64: string, filename: string): Promise<string | null> {
     if (!storageUri) {
-        console.error('GCS_VIDEOS_STORAGE_URI environment variable is not set.');
+        logger.error('GCS_VIDEOS_STORAGE_URI environment variable is not set.');
         // Depending on requirements, you might want to throw an error instead
         // throw new Error('Server configuration error: STORAGE_URI not specified.'); 
         return null; // Return null to indicate failure due to missing config
     }
     if (!base64) {
-        console.warn('Attempted to upload an empty base64 string.');
+        logger.warn('Attempted to upload an empty base64 string.');
         return null;
     }
 
@@ -34,7 +35,7 @@ export async function uploadImage(base64: string, filename: string): Promise<str
                            : storageUri.split('/')[0]; // Basic fallback if not starting with gs://
         
         if (!bucketName) {
-            console.error('Could not extract bucket name from STORAGE_URI:', storageUri);
+            logger.error('Could not extract bucket name from STORAGE_URI:', storageUri);
             return null;
         }
 
@@ -59,11 +60,11 @@ export async function uploadImage(base64: string, filename: string): Promise<str
 
         // Construct the GCS URI
         const gcsUri = `gs://${bucketName}/${filename}`; // Construct the standard gs:// URI
-        console.log(`Successfully uploaded ${filename} to ${gcsUri}`);
+        logger.debug(`Successfully uploaded ${filename} to ${gcsUri}`);
         return gcsUri;
 
     } catch (error) {
-        console.error(`Failed to upload image ${filename} to GCS:`, error);
+        logger.error(`Failed to upload image ${filename} to GCS:`, error);
         return null;
     }
 }
@@ -97,15 +98,15 @@ export async function gcsUriToSharp(gcsUri: string): Promise<sharp.Sharp> {
     const filePath = match[2];
 
     // 2. Download the image file from GCS into a buffer
-    console.log(`Downloading image from gs://${bucketName}/${filePath}`);
+    logger.debug(`Downloading image from gs://${bucketName}/${filePath}`);
     const [buffer] = await storage.bucket(bucketName).file(filePath).download();
-    console.log(`Image downloaded successfully (${buffer.length} bytes)`);
+    logger.debug(`Image downloaded successfully (${buffer.length} bytes)`);
 
     // 3. Create a sharp object from the downloaded buffer
     return sharp(buffer);
 
   } catch (error) {
-    console.error(`Error processing image from GCS URI ${gcsUri}:`, error);
+    logger.error(`Error processing image from GCS URI ${gcsUri}:`, error);
     // Re-throw the error so the caller can handle it
     throw error;
   }
@@ -129,9 +130,9 @@ export async function gcsUriToBase64(gcsUri: string): Promise<string> {
     const filePath = match[2];
 
     // 2. Download the image file into a buffer
-    console.log(`Downloading image for base64 conversion from gs://${bucketName}/${filePath}`);
+    logger.debug(`Downloading image for base64 conversion from gs://${bucketName}/${filePath}`);
     const [buffer] = await storage.bucket(bucketName).file(filePath).download();
-    console.log(`Image downloaded successfully (${buffer.length} bytes)`);
+    logger.debug(`Image downloaded successfully (${buffer.length} bytes)`);
 
     // // 3. Determine image format using sharp to get the correct MIME type
     // const imageSharp = sharp(buffer);
@@ -151,7 +152,7 @@ export async function gcsUriToBase64(gcsUri: string): Promise<string> {
     return dataUri;
 
   } catch (error) {
-    console.error(`Error converting GCS URI ${gcsUri} to base64:`, error);
+    logger.error(`Error converting GCS URI ${gcsUri} to base64:`, error);
     // Re-throw the error so the caller can handle it
     throw error;
   }

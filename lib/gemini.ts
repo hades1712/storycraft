@@ -1,6 +1,7 @@
 import { ContentListUnion, GenerateContentConfig, GoogleGenAI } from '@google/genai';
 import { v4 as uuidv4 } from 'uuid'
 import { uploadImage } from '@/lib/storage'
+import logger from '@/app/logger';
 
 const LOCATION = process.env.LOCATION
 const PROJECT_ID = process.env.PROJECT_ID
@@ -56,7 +57,7 @@ export async function generateImage(
 
             // Process the response to find and save the generated image
             if (!response.candidates || response.candidates.length === 0) {
-                console.log("No candidates found in the response.");
+                logger.warn("No candidates found in the response.");
                 // If no candidates, but no error, it might be a valid (empty) response, so break retry loop.
                 return;
             }
@@ -81,10 +82,10 @@ export async function generateImage(
                 const baseDelay = initialDelay * Math.pow(2, attempt); // Exponential backoff
                 const jitter = Math.random() * 2000; // Random value between 0 and baseDelay
                 const delay = baseDelay + jitter;
-                console.warn(`Attempt ${attempt + 1} failed for generateImage. Retrying in ${delay}ms...`, error);
+                logger.warn(`Attempt ${attempt + 1} failed for generateImage. Retrying in ${delay}ms...`, error);
                 await new Promise(resolve => setTimeout(resolve, delay));
             } else {
-                console.error(`Failed generateImage after ${maxRetries} attempts.`, error);
+                logger.error(`Failed generateImage after ${maxRetries} attempts.`, error);
                 throw error; // Re-throw the error after maximum retries
             }
         }

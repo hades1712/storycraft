@@ -3,6 +3,7 @@ import textToSpeech, { protos } from '@google-cloud/text-to-speech';
 import * as fs from 'fs';
 import * as path from 'path';
 import { v4 as uuidv4 } from 'uuid';
+import logger from '@/app/logger';
 
 const GCS_VIDEOS_STORAGE_URI = process.env.GCS_VIDEOS_STORAGE_URI || '';
 
@@ -34,13 +35,13 @@ export async function tts(text: string, language: string, voiceName?: string): P
       if (charonVoice) {
         selectedVoiceName = charonVoice.name;
       } else {
-        console.error('No voices found for language:', language);
+        logger.error('No voices found for language:', language);
         throw new Error('No voices found for language');
       }
     }
   }
 
-  console.log('Using voice:', selectedVoiceName);
+  logger.debug('Using voice:', selectedVoiceName);
   const request = {
     input: { 
       text: text,
@@ -61,7 +62,7 @@ export async function tts(text: string, language: string, voiceName?: string): P
     const audioContent = response[0].audioContent;
 
     if (!audioContent) {
-      console.error("No audio content received from TTS API");
+      logger.error("No audio content received from TTS API");
       throw new Error('No audio content received from TTS API');
     }
 
@@ -79,7 +80,7 @@ export async function tts(text: string, language: string, voiceName?: string): P
     // Return the relative file path (for serving the file)
     let voiceoverUrl: string;
     // Upload video to GCS
-    console.log(`Upload result to GCS`);
+    logger.debug(`Upload result to GCS`);
     const bucketName = GCS_VIDEOS_STORAGE_URI.replace("gs://", "").split("/")[0];
     const destinationPath = path.join(GCS_VIDEOS_STORAGE_URI.replace(`gs://${bucketName}/`, ''), fileName);
     const bucket = storage.bucket(bucketName);
@@ -93,7 +94,7 @@ export async function tts(text: string, language: string, voiceName?: string): P
     });
     return file.cloudStorageURI.href;
   } catch (error) {
-    console.error('Error in tts function:', error);
+    logger.error('Error in tts function:', error);
     throw error;
   }
 }

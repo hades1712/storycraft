@@ -4,9 +4,10 @@
 import { uploadImage } from '@/lib/storage'
 import sharp from 'sharp'
 import { v4 as uuidv4 } from 'uuid'
+import logger from '../logger';
 
 export async function resizeImage(base64Image: string): Promise<string> {
-  console.log('Resizing image')
+  logger.debug('Resizing image')
   try {
     // Remove data URL prefix if present
     const base64Data = base64Image.replace(/^data:image\/\w+;base64,/, '')
@@ -34,10 +35,10 @@ export async function resizeImage(base64Image: string): Promise<string> {
     if (!imageGcsUri) {
       throw new Error('Failed to upload image to GCS')
     }
-    console.log('Image resized!')
+    logger.debug('Image resized!')
     return imageGcsUri
   } catch (error) {
-    console.error('Error resizing image:', error)
+    logger.error('Error resizing image:', error)
     throw new Error('Failed to resize image')
   }
 }

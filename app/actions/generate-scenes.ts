@@ -10,11 +10,12 @@ import { createPartFromUri, createPartFromText } from '@google/genai';
 import { getRAIUserMessage } from '@/lib/rai'
 
 import { Scenario, Language } from "../types"
+import logger from '../logger';
 
 export async function generateScenario(name: string, pitch: string, numScenes: number, style: string, language: Language): Promise<Scenario> {
   try {
     const prompt = getScenarioPrompt(pitch, numScenes, style, language);
-    console.log('Create a scenario')
+    logger.debug('Create a scenario')
     const text = await generateContent(
       prompt,
       {
@@ -25,7 +26,7 @@ export async function generateScenario(name: string, pitch: string, numScenes: n
         responseMimeType: 'application/json',
       }
     )
-    console.log('text', text)
+    logger.debug('text', text)
 
     if (!text) {
       throw new Error('No text generated from the AI model')
@@ -34,7 +35,7 @@ export async function generateScenario(name: string, pitch: string, numScenes: n
     let scenario: Scenario
     try {
       const parsedScenario = JSON.parse(text);
-      console.log('json', parsedScenario)
+      logger.debug('json', parsedScenario)
 
       // Ensure the language is set correctly and add name, pitch, and style
       scenario = {
@@ -48,9 +49,9 @@ export async function generateScenario(name: string, pitch: string, numScenes: n
         }
       };
 
-      console.log(JSON.stringify(scenario, null, 4))
+      logger.debug(JSON.stringify(scenario, null, 4))
     } catch (parseError) {
-      console.error('Error parsing AI response:', text)
+      logger.error('Error parsing AI response:', text)
       throw new Error(`Failed to parse AI response: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`)
     }
 
@@ -58,7 +59,7 @@ export async function generateScenario(name: string, pitch: string, numScenes: n
     const [charactersWithImages, settingsWithImages] = await Promise.all([
       Promise.all(scenario.characters.map(async (character, index) => {
         try {
-          console.log(`Generating image for character ${index + 1}: ${character.name}`);
+          logger.debug(`Generating image for character ${index + 1}: ${character.name}`);
           // Define the order explicitly
           const orderedPrompt = {
             style: style,
@@ -71,17 +72,17 @@ export async function generateScenario(name: string, pitch: string, numScenes: n
           if (resultJson.predictions[0].raiFilteredReason) {
             throw new Error(getRAIUserMessage(resultJson.predictions[0].raiFilteredReason))
           } else {
-            console.log('Generated character image:', resultJson.predictions[0].gcsUri);
+            logger.debug('Generated character image:', resultJson.predictions[0].gcsUri);
             return { ...character, imageGcsUri: resultJson.predictions[0].gcsUri };
           }
         } catch (error) {
-          console.error('Error generating character image:', error);
+          logger.error('Error generating character image:', error);
           return { ...character, imageGcsUri: undefined };
         }
       })),
       Promise.all(scenario.settings.map(async (setting, index) => {
         try {
-          console.log(`Generating image for setting ${index + 1}: ${setting.name}`);
+          logger.debug(`Generating image for setting ${index + 1}: ${setting.name}`);
           // Define the order explicitly
           const orderedPrompt = {
             style: style,
@@ -94,12 +95,12 @@ export async function generateScenario(name: string, pitch: string, numScenes: n
           if (resultJson.predictions[0].raiFilteredReason) {
             throw new Error(resultJson.predictions[0].raiFilteredReason)
           } else {
-            console.log('Generated setting image:', resultJson.predictions[0].gcsUri);
+            logger.debug('Generated setting image:', resultJson.predictions[0].gcsUri);
             return { ...setting, imageGcsUri: resultJson.predictions[0].gcsUri };
           }
         }
         catch (error) {
-          console.error('Error generating setting image:', error);
+          logger.error('Error generating setting image:', error);
           return { ...setting, imageGcsUri: undefined };
         }
       }))
@@ -109,15 +110,15 @@ export async function generateScenario(name: string, pitch: string, numScenes: n
     scenario.settings = settingsWithImages
     return scenario
   } catch (error) {
-    console.error('Error generating scenes:', error)
+    logger.error('Error generating scenes:', error)
     throw new Error(`Failed to generate scenes: ${error instanceof Error ? error.message : 'Unknown error'}`)
   }
 }
 
 
 export async function generateStoryboard(scenario: Scenario, numScenes: number, style: string, language: Language): Promise<Scenario> {
-  console.log('Create a storyboard')
-  console.log(scenario.scenario)
+  logger.debug('Create a storyboard')
+  logger.debug(scenario.scenario)
   try {
     // Create a new scenario object to ensure proper serialization
     const newScenario: Scenario = {
@@ -272,7 +273,7 @@ export async function generateStoryboard(scenario: Scenario, numScenes: number, 
         },
       }
     )
-    console.log('text', text)
+    logger.debug('text', text)
 
     if (!text) {
       throw new Error('No text generated from the AI model')
@@ -281,16 +282,16 @@ export async function generateStoryboard(scenario: Scenario, numScenes: number, 
     try {
       const parsedScenes = JSON.parse(text);
       newScenario.scenes = parsedScenes.scenes
-      console.log('Server side scenes after parsing:', JSON.stringify(newScenario.scenes, null, 4))
+      logger.debug('Server side scenes after parsing:', JSON.stringify(newScenario.scenes, null, 4))
     } catch (parseError) {
-      console.error('Error parsing AI response:', text)
+      logger.error('Error parsing AI response:', text)
       throw new Error(`Failed to parse AI response: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`)
     }
 
     // Generate images for each scene
     const scenesWithImages = await Promise.all(newScenario.scenes.map(async (scene, index) => {
       try {
-        console.log(`Generating image for scene ${index + 1}`);
+        logger.debug(`Generating image for scene ${index + 1}`);
         let resultJson;
         const useR2I = true;
         if (useR2I && scene.charactersPresent.length > 0) {
@@ -326,13 +327,13 @@ export async function generateStoryboard(scenario: Scenario, numScenes: number, 
           if (resultJson.predictions[0].raiFilteredReason) {
             throw new Error(resultJson.predictions[0].raiFilteredReason)
           } else {
-            console.log('Generated image:', resultJson.predictions[0].gcsUri);
+            logger.debug('Generated image:', resultJson.predictions[0].gcsUri);
             return { ...scene, imageGcsUri: resultJson.predictions[0].gcsUri };
           }
         }
 
       } catch (error) {
-        console.error('Error generating image:', error);
+        logger.error('Error generating image:', error);
         if (error instanceof Error) {
           return { ...scene, imageGcsUri: undefined, errorMessage: error.message };
         } else {
@@ -345,7 +346,7 @@ export async function generateStoryboard(scenario: Scenario, numScenes: number, 
     // Create a fresh copy to ensure proper serialization
     return JSON.parse(JSON.stringify(newScenario))
   } catch (error) {
-    console.error('Error generating scenes:', error)
+    logger.error('Error generating scenes:', error)
     throw new Error(`Failed to generate scenes: ${error instanceof Error ? error.message : 'Unknown error'}`)
   }
 }

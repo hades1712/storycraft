@@ -1,6 +1,7 @@
 "use server";
 
 import { generateContent } from '@/lib/gemini';
+import logger from '../logger';
 
 
 export async function regenerateScenarioFromSetting(
@@ -37,13 +38,13 @@ Return ONLY the updated scenario text, no additional formatting or explanations.
             }
         );
 
-        console.log('text', text)
+        logger.debug('text', text)
 
         return {
             updatedScenario: text!.trim(),
         };
     } catch (error) {
-        console.error("Error in regenerateScenarioFromSetting:", error);
+        logger.error("Error in regenerateScenarioFromSetting:", error);
         throw new Error(
             `Failed to regenerate scenario: ${error instanceof Error ? error.message : "Unknown error"
             }`

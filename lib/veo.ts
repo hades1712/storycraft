@@ -1,5 +1,6 @@
 import { GoogleAuth } from 'google-auth-library';
 import { GoogleGenAI, Part } from '@google/genai';
+import logger from '@/app/logger';
 
 const LOCATION = process.env.LOCATION
 const PROJECT_ID = process.env.PROJECT_ID
@@ -208,14 +209,14 @@ Generate a video prompt in YAML using this format :
       contents,
     });
 
-    console.log('text', response.text)
+    logger.debug('text', response.text)
     modifiedPrompt = response.text || (prompt + '\nDialog: none\nSubtitles: off')
   } else {
     modifiedPrompt = prompt + '\nDialog: none\nSubtitles: off'
   }
 
 
-  console.log(MODEL)
+  logger.debug(MODEL)
   const makeRequest = async (attempt: number) => {
     try {
       const response = await fetch(
@@ -258,14 +259,14 @@ Generate a video prompt in YAML using this format :
         const baseDelay = initialDelay * Math.pow(2, attempt); // Exponential backoff
         const jitter = Math.random() * 2000; // Random value between 0 and baseDelay
         const delay = baseDelay + jitter;
-        console.warn(
+        logger.warn(
           `Attempt ${attempt + 1} failed. Retrying in ${delay}ms...`,
           error instanceof Error ? error.message : error
         );
         await new Promise(resolve => setTimeout(resolve, delay));
         return makeRequest(attempt + 1); // Recursive call for retry
       } else {
-        console.error(`Failed after ${maxRetries} attempts.`, error);
+        logger.error(`Failed after ${maxRetries} attempts.`, error);
         throw error; // Re-throw the error after maximum retries
       }
     }

@@ -2,6 +2,7 @@ import { Scene } from '@/app/types';
 import { videoPromptToString } from '@/lib/prompt-utils';
 import { generateSceneVideo, waitForOperation } from '@/lib/veo';
 import { Storage } from '@google-cloud/storage';
+import logger from '@/app/logger';
 
 
 const USE_COSMO = process.env.USE_COSMO === "true";
@@ -31,27 +32,27 @@ export async function POST(req: Request): Promise<Response> {
 
 
   try {
-    console.log('Generating videos in parallel...');
-    console.log('scenes', scenes);
+    logger.debug('Generating videos in parallel...');
+    logger.debug('scenes', scenes);
     const storage = new Storage();
 
     const videoGenerationTasks = scenes
       .filter(scene => scene.imageGcsUri)
       .map(async (scene, index) => {
-        console.log(`Starting video generation for scene ${index + 1}`);
+        logger.debug(`Starting video generation for scene ${index + 1}`);
         let url: string;
         if (USE_COSMO) {
           // randomize the placeholder video urls
           url = placeholderVideoUrls[Math.floor(Math.random() * placeholderVideoUrls.length)];
         } else {
           const promptString = typeof scene.videoPrompt === 'string' ? scene.videoPrompt : videoPromptToString(scene.videoPrompt);
-          console.log(promptString)
+          logger.debug(promptString)
           const operationName = await generateSceneVideo(promptString, scene.imageGcsUri!);
-          console.log(`Operation started for scene ${index + 1}`);
+          logger.debug(`Operation started for scene ${index + 1}`);
 
           const generateVideoResponse = await waitForOperation(operationName);
-          console.log(`Video generation completed for scene ${index + 1}`);
-          console.log(generateVideoResponse)
+          logger.debug(`Video generation completed for scene ${index + 1}`);
+          logger.debug(generateVideoResponse)
 
           if (generateVideoResponse.response.raiMediaFilteredReasons) {
             // Throw an error with the determined user-friendly message
@@ -61,7 +62,7 @@ export async function POST(req: Request): Promise<Response> {
           const gcsUri = generateVideoResponse.response.videos[0].gcsUri;
           url = gcsUri;
         }
-        console.log('Video Generated!', url)
+        logger.debug('Video Generated!', url)
         return url;
       });
 
@@ -69,7 +70,7 @@ export async function POST(req: Request): Promise<Response> {
 
     return Response.json({ success: true, videoUrls }); // Return response data if needed
   } catch (error) {
-    console.error('Error in generateVideo:', error);
+    logger.error('Error in generateVideo:', error);
     return Response.json(
       { success: false, error: error instanceof Error ? error.message : 'Failed to generate video(s)' }
     );

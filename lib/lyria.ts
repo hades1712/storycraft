@@ -4,6 +4,7 @@ import { GoogleAuth } from 'google-auth-library';
 import * as path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { concatenateMusicWithFade } from './ffmpeg';
+import logger from '@/app/logger';
 
 const GCS_VIDEOS_STORAGE_URI = process.env.GCS_VIDEOS_STORAGE_URI || '';
 const LOCATION = process.env.LOCATION
@@ -33,7 +34,7 @@ export async function generateMusicRest(prompt: string): Promise<string> {
   const token = await getAccessToken();
   const maxRetries = 1; // Maximum number of retries
   const initialDelay = 1000; // Initial delay in milliseconds (1 second)
-  console.log(MODEL)
+  logger.debug(MODEL)
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
@@ -82,7 +83,7 @@ export async function generateMusicRest(prompt: string): Promise<string> {
       // Return the relative file path (for serving the file)
       let musicUrl: string;
       // Upload to GCS
-      console.log(`Upload result to GCS`);
+      logger.debug(`Upload result to GCS`);
       const bucketName = GCS_VIDEOS_STORAGE_URI.replace("gs://", "").split("/")[0];
       const destinationPath = path.join(GCS_VIDEOS_STORAGE_URI.replace(`gs://${bucketName}/`, ''), fileName);
       const bucket = storage.bucket(bucketName);
@@ -100,10 +101,10 @@ export async function generateMusicRest(prompt: string): Promise<string> {
         const baseDelay = initialDelay * Math.pow(2, attempt); // Exponential backoff
         const jitter = Math.random() * 2000; // Random value between 0 and baseDelay
         const delay = baseDelay + jitter;
-        console.warn(`Attempt ${attempt + 1} failed. Retrying in ${delay}ms...`, error);
+        logger.warn(`Attempt ${attempt + 1} failed. Retrying in ${delay}ms...`, error);
         await new Promise(resolve => setTimeout(resolve, delay));
       } else {
-        console.error(`Failed after ${maxRetries} attempts.`, error);
+        logger.error(`Failed after ${maxRetries} attempts.`, error);
         throw error; // Re-throw the error after maximum retries
       }
     }

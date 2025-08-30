@@ -5,6 +5,7 @@ import { Scenario, ImagePrompt } from '@/app/types'
 import yaml from 'js-yaml'
 import { createPartFromUri, createPartFromText } from '@google/genai';
 import { generateImage } from '@/lib/gemini'
+import logger from '@/app/logger';
 
 export async function POST(request: NextRequest) {
   try {
@@ -55,21 +56,21 @@ export async function POST(request: NextRequest) {
     // Convert structured prompt to string if needed
     const promptString = typeof prompt === 'string' ? prompt : imagePromptToString(prompt as ImagePrompt)
 
-    console.log('Regenerating image with prompt:', promptString)
+    logger.debug('Regenerating image with prompt:', promptString)
 
     const resultJson = await generateImageRest(promptString)
 
     if (resultJson.predictions[0].raiFilteredReason) {
       throw new Error(resultJson.predictions[0].raiFilteredReason)
     } else {
-      console.log('Generated image:', resultJson.predictions[0].gcsUri)
+      logger.debug('Generated image:', resultJson.predictions[0].gcsUri)
       return NextResponse.json({
         success: true,
         imageGcsUri: resultJson.predictions[0].gcsUri
       })
     }
   } catch (error) {
-    console.error('Error regenerating image:', error)
+    logger.error('Error regenerating image:', error)
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'
     return NextResponse.json({
       success: false,
@@ -88,21 +89,21 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'String prompt is required for character image' }, { status: 400 })
     }
 
-    console.log('Regenerating character image with prompt:', prompt)
+    logger.debug('Regenerating character image with prompt:', prompt)
 
     const resultJson = await generateImageRest(prompt, "1:1", false)
 
     if (resultJson.predictions[0].raiFilteredReason) {
       throw new Error(resultJson.predictions[0].raiFilteredReason)
     } else {
-      console.log('Generated character image:', resultJson.predictions[0].gcsUri)
+      logger.debug('Generated character image:', resultJson.predictions[0].gcsUri)
       return NextResponse.json({
         success: true,
         imageGcsUri: resultJson.predictions[0].gcsUri
       })
     }
   } catch (error) {
-    console.error('Error regenerating character image:', error)
+    logger.error('Error regenerating character image:', error)
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'
     return NextResponse.json({
       success: false,

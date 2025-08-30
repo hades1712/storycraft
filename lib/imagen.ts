@@ -1,4 +1,5 @@
 import { GoogleAuth } from 'google-auth-library'
+import logger from '@/app/logger';
 
 
 const LOCATION = process.env.LOCATION
@@ -36,7 +37,7 @@ export async function generateImageRest(prompt: string, aspectRatio?: string, en
   const token = await getAccessToken();
   const maxRetries = 5; // Maximum number of retries
   const initialDelay = 1000; // Initial delay in milliseconds (1 second)
-  console.log(prompt)
+  logger.debug(prompt)
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
@@ -81,10 +82,10 @@ export async function generateImageRest(prompt: string, aspectRatio?: string, en
         const baseDelay = initialDelay * Math.pow(2, attempt); // Exponential backoff
         const jitter = Math.random() * 2000; // Random value between 0 and baseDelay
         const delay = baseDelay + jitter;
-        console.warn(`Attempt ${attempt + 1} failed. Retrying in ${delay}ms...`, error);
+        logger.warn(`Attempt ${attempt + 1} failed. Retrying in ${delay}ms...`, error);
         await new Promise(resolve => setTimeout(resolve, delay));
       } else {
-        console.error(`Failed after ${maxRetries} attempts.`, error);
+        logger.error(`Failed after ${maxRetries} attempts.`, error);
         throw error; // Re-throw the error after maximum retries
       }
     }
@@ -145,7 +146,7 @@ export async function generateImageCustomizationRest(prompt: string, characters:
       )
       // Check if the response was successful
       if (!response.ok) {
-        console.log(response)
+        logger.debug(response)
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       const jsonResult = await response.json(); // Parse as JSON
@@ -155,10 +156,10 @@ export async function generateImageCustomizationRest(prompt: string, characters:
         const baseDelay = initialDelay * Math.pow(2, attempt); // Exponential backoff
         const jitter = Math.random() * 2000; // Random value between 0 and baseDelay
         const delay = baseDelay + jitter;
-        console.warn(`Attempt ${attempt + 1} failed. Retrying in ${delay}ms...`, error);
+        logger.warn(`Attempt ${attempt + 1} failed. Retrying in ${delay}ms...`, error);
         await new Promise(resolve => setTimeout(resolve, delay));
       } else {
-        console.error(`Failed after ${maxRetries} attempts.`, error);
+        logger.error(`Failed after ${maxRetries} attempts.`, error);
         throw error; // Re-throw the error after maximum retries
       }
     }
