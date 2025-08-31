@@ -7,7 +7,7 @@ import { useState, useRef, useEffect } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { GcsImage } from "../ui/gcs-image";
-import { regenerateScenarioFromSetting } from "../../actions/regenerate-scenario-from-settings";
+import { deleteCharacterFromScenario, deleteSettingFromScenario } from "@/app/actions/modify-scenario";
 
 interface ScenarioTabProps {
     scenario?: Scenario;
@@ -17,10 +17,12 @@ interface ScenarioTabProps {
     onRegenerateCharacterImage?: (characterIndex: number, name: string, description: string) => Promise<void>;
     onUploadCharacterImage?: (characterIndex: number, file: File) => Promise<void>;
     generatingCharacterImages?: Set<number>;
-    generatingSettings?: Set<number>;
+    onRegenerateSettingImage?: (settingIndex: number, name: string, description: string) => Promise<void>;
+    onUploadSettingImage?: (settingIndex: number, file: File) => Promise<void>;
+    generatingSettingImages?: Set<number>;
 }
 
-export function ScenarioTab({ scenario, onGenerateStoryBoard, isLoading, onScenarioUpdate, onRegenerateCharacterImage, onUploadCharacterImage, generatingCharacterImages, generatingSettings }: ScenarioTabProps) {
+export function ScenarioTab({ scenario, onGenerateStoryBoard, isLoading, onScenarioUpdate, onRegenerateCharacterImage, onUploadCharacterImage, generatingCharacterImages, onRegenerateSettingImage, onUploadSettingImage, generatingSettingImages }: ScenarioTabProps) {
     const [isEditing, setIsEditing] = useState(false);
     const [editedScenario, setEditedScenario] = useState(scenario?.scenario || '');
     const [isScenarioHovering, setIsScenarioHovering] = useState(false);
@@ -40,6 +42,7 @@ export function ScenarioTab({ scenario, onGenerateStoryBoard, isLoading, onScena
     const characterEditingRefs = useRef<(HTMLDivElement | null)[]>([]);
     const characterFileInputRefs = useRef<(HTMLInputElement | null)[]>([]);
     const settingEditingRefs = useRef<(HTMLDivElement | null)[]>([]);
+    const settingFileInputRefs = useRef<(HTMLInputElement | null)[]>([]);
     const musicRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -61,6 +64,8 @@ export function ScenarioTab({ scenario, onGenerateStoryBoard, isLoading, onScena
             setEditedSettingNames(scenario.settings.map(setting => setting.name));
             // Initialize refs array for setting editing areas
             settingEditingRefs.current = new Array(scenario.settings.length).fill(null);
+            // Initialize refs array for setting file inputs
+            settingFileInputRefs.current = new Array(scenario.settings.length).fill(null);
             // Initialize hover states for settings
             setSettingHoverStates(new Array(scenario.settings.length).fill(false));
         }
@@ -165,6 +170,17 @@ export function ScenarioTab({ scenario, onGenerateStoryBoard, isLoading, onScena
         }
     };
 
+    const handleSettingUploadClick = (index: number) => {
+        settingFileInputRefs.current[index]?.click();
+    };
+
+    const handleSettingFileChange = async (index: number, event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (file && onUploadSettingImage) {
+            await onUploadSettingImage(index, file);
+        }
+    };
+
     const handleSave = async () => {
         if (scenario && onScenarioUpdate) {
             const updatedScenario = {
@@ -207,59 +223,26 @@ export function ScenarioTab({ scenario, onGenerateStoryBoard, isLoading, onScena
         if (scenario && onScenarioUpdate) {
             const updatedDescription = editedSettingDescriptions[index];
             const updatedName = editedSettingNames[index];
-            const setting = scenario.settings[index];
             
-            // Add to loading state
-            setLocalGeneratingSettings(prev => new Set(prev).add(index));
-            setEditingSettingIndex(null);
+            // Update the scenario with the new description and name
+            const updatedSettings = [...scenario.settings];
+            updatedSettings[index] = {
+                ...updatedSettings[index],
+                name: updatedName,
+                description: updatedDescription
+            };
+            const updatedScenario = {
+                ...scenario,
+                settings: updatedSettings
+            };
+            onScenarioUpdate(updatedScenario);
             
-            try {
-                // Regenerate scenario text with updated setting
-                const { updatedScenario: newScenarioText } = await regenerateScenarioFromSetting(
-                    scenario.scenario,
-                    setting.name,
-                    updatedName, // use the updated name
-                    updatedDescription
-                );
-                
-                // Update the scenario with the new setting name, description and scenario text
-                const updatedSettings = [...scenario.settings];
-                updatedSettings[index] = {
-                    ...updatedSettings[index],
-                    name: updatedName,
-                    description: updatedDescription
-                };
-                const updatedScenario = {
-                    ...scenario,
-                    settings: updatedSettings,
-                    scenario: newScenarioText
-                };
-                onScenarioUpdate(updatedScenario);
-            } catch (error) {
-                console.error('Error updating setting:', error);
-                // Still update the setting name and description even if scenario regeneration fails
-                const updatedSettings = [...scenario.settings];
-                updatedSettings[index] = {
-                    ...updatedSettings[index],
-                    name: updatedName,
-                    description: updatedDescription
-                };
-                const updatedScenario = {
-                    ...scenario,
-                    settings: updatedSettings
-                };
-                onScenarioUpdate(updatedScenario);
-            } finally {
-                // Remove from loading state
-                setLocalGeneratingSettings(prev => {
-                    const newSet = new Set(prev);
-                    newSet.delete(index);
-                    return newSet;
-                });
+            // Optionally regenerate image with the updated name and description
+            if (onRegenerateSettingImage) {
+                await onRegenerateSettingImage(index, updatedName, updatedDescription);
             }
-        } else {
-            setEditingSettingIndex(null);
         }
+        setEditingSettingIndex(null);
     };
 
     const handleSaveMusic = async () => {
@@ -292,12 +275,14 @@ export function ScenarioTab({ scenario, onGenerateStoryBoard, isLoading, onScena
         }
     };
 
-    const handleRemoveCharacter = (index: number) => {
+    const handleRemoveCharacter = async (index: number) => {
         if (scenario && onScenarioUpdate) {
+            const newScenario = await deleteCharacterFromScenario(scenario.scenario, scenario.characters[index].name, scenario.characters[index].description);
             const updatedCharacters = scenario.characters.filter((_, i) => i !== index);
             const updatedScenario = {
                 ...scenario,
-                characters: updatedCharacters
+                characters: updatedCharacters,
+                scenario: newScenario.updatedScenario
             };
             onScenarioUpdate(updatedScenario);
             
@@ -329,12 +314,14 @@ export function ScenarioTab({ scenario, onGenerateStoryBoard, isLoading, onScena
         }
     };
 
-    const handleRemoveSetting = (index: number) => {
+    const handleRemoveSetting = async (index: number) => {
         if (scenario && onScenarioUpdate) {
+            const newScenario = await deleteSettingFromScenario(scenario.scenario, scenario.settings[index].name, scenario.settings[index].description);
             const updatedSettings = scenario.settings.filter((_, i) => i !== index);
             const updatedScenario = {
                 ...scenario,
-                settings: updatedSettings
+                settings: updatedSettings,
+                scenario: newScenario.updatedScenario
             };
             onScenarioUpdate(updatedScenario);
             
@@ -526,7 +513,7 @@ export function ScenarioTab({ scenario, onGenerateStoryBoard, isLoading, onScena
                         {scenario.settings.map((setting, index) => (
                             <div key={index} className="flex gap-4 items-start">
                                 <div className="flex-shrink-0 w-[200px] h-[200px] relative group">
-                                    {(localGeneratingSettings.has(index) || generatingSettings?.has(index)) && (
+                                    {generatingSettingImages?.has(index) && (
                                         <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-10 rounded-lg">
                                             <Loader2 className="h-8 w-8 text-white animate-spin" />
                                         </div>
@@ -537,18 +524,38 @@ export function ScenarioTab({ scenario, onGenerateStoryBoard, isLoading, onScena
                                         className="object-cover rounded-lg shadow-md"
                                         sizes="200px"
                                     />
-                                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                                        <Button
+                                            variant="secondary"
+                                            size="icon"
+                                            className="bg-black/50 hover:bg-green-500 hover:text-white"
+                                            onClick={() => handleSettingUploadClick(index)}
+                                            disabled={generatingSettingImages?.has(index)}
+                                        >
+                                            <Upload className="h-4 w-4" />
+                                            <span className="sr-only">Upload setting image</span>
+                                        </Button>
                                         <Button
                                             variant="secondary"
                                             size="icon"
                                             className="bg-black/50 hover:bg-red-500 hover:text-white"
                                             onClick={() => handleRemoveSetting(index)}
-                                            disabled={localGeneratingSettings.has(index) || generatingSettings?.has(index)}
+                                            disabled={generatingSettingImages?.has(index)}
                                         >
                                             <X className="h-4 w-4" />
                                             <span className="sr-only">Remove setting</span>
                                         </Button>
                                     </div>
+                                    <input
+                                        type="file"
+                                        ref={(el) => {
+                                            settingFileInputRefs.current[index] = el;
+                                            return;
+                                        }}
+                                        onChange={(e) => handleSettingFileChange(index, e)}
+                                        accept="image/*"
+                                        className="hidden"
+                                    />
                                 </div>
                                 <div className="flex-grow relative group">
                                     <div 
@@ -560,10 +567,10 @@ export function ScenarioTab({ scenario, onGenerateStoryBoard, isLoading, onScena
                                         onMouseEnter={() => handleSettingHover(index, true)}
                                         onMouseLeave={() => handleSettingHover(index, false)}
                                     >
-                                        {editingSettingIndex !== index && settingHoverStates[index] && !localGeneratingSettings.has(index) && !generatingSettings?.has(index) && (
+                                        {editingSettingIndex !== index && settingHoverStates[index] && (
                                             <button
                                                 onClick={() => setEditingSettingIndex(index)}
-                                                className="absolute top-2 right-2 p-2 rounded-full text-primary-foreground bg-primary/80 hover:bg-primary shadow-sm transition-all z-10"
+                                                className="absolute top-0 right-2 p-2 rounded-full text-primary-foreground bg-primary/80 hover:bg-primary shadow-sm transition-all z-10"
                                             >
                                                 <Pencil className="h-4 w-4" />
                                             </button>

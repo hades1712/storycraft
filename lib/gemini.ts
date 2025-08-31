@@ -17,7 +17,6 @@ export async function generateContent(
             thinkingBudget: -1,
         },
         responseMimeType: 'application/json',
-        maxOutputTokens: -1,
     }): Promise<string | undefined> {
 
     const model = 'gemini-2.5-flash';

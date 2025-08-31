@@ -22,8 +22,7 @@ import { StoryboardTab } from './components/storyboard/storyboard-tab'
 import { UserProfile } from "./components/user-profile"
 import { VideoTab } from './components/video/video-tab'
 import { Scenario, Scene, TimelineLayer, type Language } from './types'
-import { regenerateCharacterAndScenarioFromText } from "./actions/regenerate-character-and-scenario-from-text"
-import { regenerateCharacterAndScenario } from "./actions/regenerate-character-and-scenario"
+import { regenerateCharacterAndScenarioFromText, regenerateCharacterAndScenarioFromImage, regenerateSettingAndScenarioFromImage, regenerateSettingAndScenarioFromText } from "./actions/modify-scenario"
 
 const styles: Style[] = [
   { name: "Photographic", image: "/styles/cinematic.jpg" },
@@ -52,6 +51,7 @@ export default function Home() {
   const [scenario, setScenario] = useState<Scenario>()
   const [generatingScenes, setGeneratingScenes] = useState<Set<number>>(new Set());
   const [generatingCharacterImages, setGeneratingCharacterImages] = useState<Set<number>>(new Set());
+  const [generatingSettingImages, setGeneratingSettingImages] = useState<Set<number>>(new Set());
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [videoUri, setVideoUri] = useState<string | null>(null)
   const [vttUri, setVttUri] = useState<string | null>(null)
@@ -70,6 +70,10 @@ export default function Home() {
   useEffect(() => {
     console.log("generatingScenes (in useEffect):", generatingScenes);
   }, [generatingScenes]); // Log only when generatingScenes changes
+
+  useEffect(() => {
+    console.log("generatingCharacterImages (in useEffect):", generatingCharacterImages);
+  }, [generatingCharacterImages]); // Log only when generatingCharacterImages changes
 
   // Auto-save scenario whenever it changes (debounced)
   useEffect(() => {
@@ -158,7 +162,7 @@ export default function Home() {
     setErrorMessage(null)
     try {
       // Regenerate character image using the updated description
-      const { newScenario, newImageGcsUri } = await regenerateCharacterAndScenarioFromText(scenario.scenario, scenario.characters[characterIndex].name, name, description, style)
+      const { updatedScenario: newScenarioText, newImageGcsUri } = await regenerateCharacterAndScenarioFromText(scenario.scenario, scenario.characters[characterIndex].name, name, description, style)
       
       
       // Update the character with the new image AND the updated description
@@ -173,7 +177,7 @@ export default function Home() {
       const updatedScenario = {
         ...scenario,
         characters: updatedCharacters,
-        scenario: newScenario
+        scenario: newScenarioText
       };
       
       setScenario(updatedScenario);
@@ -184,6 +188,44 @@ export default function Home() {
       setGeneratingCharacterImages(prev => {
         const updated = new Set(prev);
         updated.delete(characterIndex);
+        return updated;
+      });
+    }
+  }
+
+  const handleRegenerateSettingImage = async (settingIndex: number, name: string, description: string) => {
+    if (!scenario) return;
+    
+    setGeneratingSettingImages(prev => new Set([...prev, settingIndex]));
+    setErrorMessage(null)
+    try {
+      // Regenerate setting image using the updated description
+      const { updatedScenario: newScenarioText, newImageGcsUri } = await regenerateSettingAndScenarioFromText(scenario.scenario, scenario.settings[settingIndex].name, name, description, style)
+      
+      
+      // Update the setting with the new image AND the updated description
+      const updatedSettings = [...scenario.settings];
+      updatedSettings[settingIndex] = {
+        ...updatedSettings[settingIndex],
+        name: name, // Preserve the updated name
+        description: description, // Preserve the updated description
+        imageGcsUri: newImageGcsUri
+      };
+      
+      const updatedScenario = {
+        ...scenario,
+        settings: updatedSettings,
+        scenario: newScenarioText
+      };
+      
+      setScenario(updatedScenario);
+    } catch (error) {
+      console.error("Error regenerating setting image:", error)
+      setErrorMessage(`Failed to regenerate setting image: ${error instanceof Error ? error.message : "Unknown error"}`)
+    } finally {
+      setGeneratingSettingImages(prev => {
+        const updated = new Set(prev);
+        updated.delete(settingIndex);
         return updated;
       });
     }
@@ -445,67 +487,134 @@ export default function Home() {
     }
   }
 
+  const handleUploadSettingImage = async (settingIndex: number, file: File) => {
+    if (!scenario) return;
+    
+    console.log('Starting setting image upload for index:', settingIndex);
+    setErrorMessage(null);
+    setGeneratingSettingImages(prev => new Set(prev).add(settingIndex));
+    
+    try {
+      const base64String = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          resolve(reader.result as string);
+        };
+        reader.onerror = () => {
+          reject(new Error("Failed to read the image file"));
+        };
+        reader.readAsDataURL(file);
+      });
+      
+      const imageBase64 = base64String.split(",")[1]; // Remove the data URL prefix
+      const resizedImageGcsUri = await resizeImage(imageBase64);
+      
+      const setting = scenario.settings[settingIndex];
+      console.log('Calling regenerateSettingAndScenarioFromImage for setting:', setting.name);
+      const result = await regenerateSettingAndScenarioFromImage(
+        scenario.scenario,
+        setting.name,
+        setting.description,
+        resizedImageGcsUri,
+        scenario.settings,
+        style
+      );
+      console.log('regenerateSettingAndScenarioFromImage completed successfully');
+      
+      // Update scenario with new setting description and scenario text
+      setScenario(currentScenario => {
+        if (!currentScenario) return currentScenario;
+        
+        const updatedSettings = [...currentScenario.settings];
+        if (result.updatedSetting) {
+          updatedSettings[settingIndex] = {
+            ...updatedSettings[settingIndex],
+            description: result.updatedSetting.description,
+            name: result.updatedSetting.name,
+            imageGcsUri: result.newImageGcsUri
+          };
+        }
+        
+        return {
+          ...currentScenario,
+          scenario: result.updatedScenario,
+          settings: updatedSettings
+        };
+      });
+      
+    } catch (error) {
+      console.error("Error uploading setting image:", error);
+      setErrorMessage(error instanceof Error ? error.message : "An unknown error occurred while uploading the setting image");
+    } finally {
+      console.log('Finishing setting image upload for index:', settingIndex);
+      setGeneratingSettingImages(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(settingIndex);
+        return newSet;
+      });
+    }
+  }
+
   const handleUploadCharacterImage = async (characterIndex: number, file: File) => {
     if (!scenario) return;
     
+    console.log('Starting character image upload for index:', characterIndex);
     setErrorMessage(null);
     setGeneratingCharacterImages(prev => new Set(prev).add(characterIndex));
     
     try {
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        try {
-          const base64String = reader.result as string;
-          const imageBase64 = base64String.split(",")[1]; // Remove the data URL prefix
-          const resizedImageGcsUri = await resizeImage(imageBase64);
-          
-          const character = scenario.characters[characterIndex];
-          const result = await regenerateCharacterAndScenario(
-            scenario.scenario,
-            character.name,
-            character.description,
-            resizedImageGcsUri,
-            scenario.characters
-          );
-          
-          // Update scenario with new character description and scenario text
-          setScenario(currentScenario => {
-            if (!currentScenario) return currentScenario;
-            
-            const updatedCharacters = [...currentScenario.characters];
-            updatedCharacters[characterIndex] = {
-              ...updatedCharacters[characterIndex],
-              description: result.updatedCharacter.description,
-              name: result.updatedCharacter.name,
-              imageGcsUri: resizedImageGcsUri
-            };
-            
-            return {
-              ...currentScenario,
-              scenario: result.updatedScenario,
-              characters: updatedCharacters
-            };
-          });
-          
-          
-        } catch (error) {
-          console.error("Error processing character image upload:", error);
-          setErrorMessage(error instanceof Error ? error.message : "An unknown error occurred while processing the character image");
+      const base64String = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          resolve(reader.result as string);
+        };
+        reader.onerror = () => {
+          reject(new Error("Failed to read the image file"));
+        };
+        reader.readAsDataURL(file);
+      });
+      
+      const imageBase64 = base64String.split(",")[1]; // Remove the data URL prefix
+      const resizedImageGcsUri = await resizeImage(imageBase64);
+      
+      const character = scenario.characters[characterIndex];
+      console.log('Calling regenerateCharacterAndScenarioFromImage for character:', character.name);
+      const result = await regenerateCharacterAndScenarioFromImage(
+        scenario.scenario,
+        character.name,
+        character.description,
+        resizedImageGcsUri,
+        scenario.characters,
+        style
+      );
+      console.log('regenerateCharacterAndScenarioFromImage completed successfully');
+      
+      // Update scenario with new character description and scenario text
+      setScenario(currentScenario => {
+        if (!currentScenario) return currentScenario;
+        
+        const updatedCharacters = [...currentScenario.characters];
+        if (result.updatedCharacter) {
+          updatedCharacters[characterIndex] = {
+            ...updatedCharacters[characterIndex],
+            description: result.updatedCharacter.description,
+            name: result.updatedCharacter.name,
+            imageGcsUri: result.newImageGcsUri
+          };
         }
-      };
-      reader.onerror = () => {
-        throw new Error("Failed to read the image file");
-      };
-      reader.readAsDataURL(file);
+        
+        return {
+          ...currentScenario,
+          scenario: result.updatedScenario,
+          characters: updatedCharacters
+        };
+      });
+      
     } catch (error) {
       console.error("Error uploading character image:", error);
       setErrorMessage(error instanceof Error ? error.message : "An unknown error occurred while uploading the character image");
-      setGeneratingCharacterImages(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(characterIndex);
-        return newSet;
-      });
     } finally {
+      console.log('Finishing character image upload for index:', characterIndex);
       setGeneratingCharacterImages(prev => {
         const newSet = new Set(prev);
         newSet.delete(characterIndex);
@@ -855,6 +964,9 @@ export default function Home() {
             onRegenerateCharacterImage={handleRegenerateCharacterImage}
             onUploadCharacterImage={handleUploadCharacterImage}
             generatingCharacterImages={generatingCharacterImages}
+            onRegenerateSettingImage={handleRegenerateSettingImage}
+            onUploadSettingImage={handleUploadSettingImage}
+            generatingSettingImages={generatingSettingImages}
           />
         )}
 
