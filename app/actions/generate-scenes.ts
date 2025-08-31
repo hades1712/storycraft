@@ -26,7 +26,7 @@ export async function generateScenario(name: string, pitch: string, numScenes: n
         responseMimeType: 'application/json',
       }
     )
-    logger.debug('text', text)
+    logger.debug(text)
 
     if (!text) {
       throw new Error('No text generated from the AI model')
@@ -35,7 +35,7 @@ export async function generateScenario(name: string, pitch: string, numScenes: n
     let scenario: Scenario
     try {
       const parsedScenario = JSON.parse(text);
-      logger.debug('json', parsedScenario)
+      logger.debug(parsedScenario)
 
       // Ensure the language is set correctly and add name, pitch, and style
       scenario = {
@@ -51,7 +51,7 @@ export async function generateScenario(name: string, pitch: string, numScenes: n
 
       logger.debug(JSON.stringify(scenario, null, 4))
     } catch (parseError) {
-      logger.error('Error parsing AI response:', text)
+      logger.error('Error parsing AI response:', parseError)
       throw new Error(`Failed to parse AI response: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`)
     }
 
@@ -72,7 +72,7 @@ export async function generateScenario(name: string, pitch: string, numScenes: n
           if (resultJson.predictions[0].raiFilteredReason) {
             throw new Error(getRAIUserMessage(resultJson.predictions[0].raiFilteredReason))
           } else {
-            logger.debug('Generated character image:', resultJson.predictions[0].gcsUri);
+            logger.debug(`Generated character image: ${resultJson.predictions[0].gcsUri}`);
             return { ...character, imageGcsUri: resultJson.predictions[0].gcsUri };
           }
         } catch (error) {
@@ -95,7 +95,7 @@ export async function generateScenario(name: string, pitch: string, numScenes: n
           if (resultJson.predictions[0].raiFilteredReason) {
             throw new Error(resultJson.predictions[0].raiFilteredReason)
           } else {
-            logger.debug('Generated setting image:', resultJson.predictions[0].gcsUri);
+            logger.debug(`Generated setting image: ${resultJson.predictions[0].gcsUri}`);
             return { ...setting, imageGcsUri: resultJson.predictions[0].gcsUri };
           }
         }
@@ -273,7 +273,7 @@ export async function generateStoryboard(scenario: Scenario, numScenes: number, 
         },
       }
     )
-    logger.debug('text', text)
+    logger.debug(text)
 
     if (!text) {
       throw new Error('No text generated from the AI model')
@@ -282,9 +282,9 @@ export async function generateStoryboard(scenario: Scenario, numScenes: number, 
     try {
       const parsedScenes = JSON.parse(text);
       newScenario.scenes = parsedScenes.scenes
-      logger.debug('Server side scenes after parsing:', JSON.stringify(newScenario.scenes, null, 4))
+      logger.debug(`Server side scenes after parsing: ${JSON.stringify(newScenario.scenes, null, 4)}`)
     } catch (parseError) {
-      logger.error('Error parsing AI response:', text)
+      logger.error('Error parsing AI response:', parseError)
       throw new Error(`Failed to parse AI response: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`)
     }
 
@@ -327,7 +327,7 @@ export async function generateStoryboard(scenario: Scenario, numScenes: number, 
           if (resultJson.predictions[0].raiFilteredReason) {
             throw new Error(resultJson.predictions[0].raiFilteredReason)
           } else {
-            logger.debug('Generated image:', resultJson.predictions[0].gcsUri);
+            logger.debug(`Generated image: ${resultJson.predictions[0].gcsUri}`);
             return { ...scene, imageGcsUri: resultJson.predictions[0].gcsUri };
           }
         }

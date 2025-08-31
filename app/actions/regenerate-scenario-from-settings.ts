@@ -38,7 +38,7 @@ Return ONLY the updated scenario text, no additional formatting or explanations.
             }
         );
 
-        logger.debug('text', text)
+        logger.debug(text)
 
         return {
             updatedScenario: text!.trim(),

@@ -13,8 +13,8 @@ export async function exportMovieAction(
     const { videoUrl, vttUrl } = await exportMovieFFMPEG(
       layers
     );
-    logger.debug('videoUrl:', videoUrl);
-    if (vttUrl) logger.debug('vttUrl:', vttUrl);
+    logger.debug(`videoUrl: ${videoUrl}`);
+    if (vttUrl) logger.debug(`vttUrl: ${vttUrl}`);
     logger.debug(`Generated video!`);
     return { success: true, videoUrl, vttUrl }
   } catch (error) {

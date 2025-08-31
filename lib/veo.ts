@@ -209,7 +209,7 @@ Generate a video prompt in YAML using this format :
       contents,
     });
 
-    logger.debug('text', response.text)
+    logger.debug(response.text)
     modifiedPrompt = response.text || (prompt + '\nDialog: none\nSubtitles: off')
   } else {
     modifiedPrompt = prompt + '\nDialog: none\nSubtitles: off'

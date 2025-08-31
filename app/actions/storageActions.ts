@@ -10,7 +10,7 @@ const getCachedSignedUrl = cache(
   async (gcsUri: string): Promise<{ url: string | null; mimeType: string | null; }> => {
     logger.debug(`CACHE MISS: Fetching signed URL for ${gcsUri}`);
     if (!gcsUri || !gcsUri.startsWith('gs://')) {
-      logger.error("Invalid GCS URI passed to cached function:", gcsUri);
+      logger.error(`Invalid GCS URI passed to cached function: ${gcsUri}`);
       return { url: null, mimeType: null }; 
     }
     try {
@@ -40,7 +40,7 @@ const getCachedSignedUrl = cache(
  */
 export async function getDynamicImageUrl(gcsUri: string): Promise<{ url: string | null; mimeType: string | null; }> {
   // Call the cached function
-  logger.debug('getDynamicImageUrl', gcsUri);
+  logger.debug(`getDynamicImageUrl: ${gcsUri}`);
   return getCachedSignedUrl(gcsUri);
 }
 

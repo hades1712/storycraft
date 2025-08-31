@@ -41,7 +41,7 @@ export async function tts(text: string, language: string, voiceName?: string): P
     }
   }
 
-  logger.debug('Using voice:', selectedVoiceName);
+  logger.debug(`Using voice: ${selectedVoiceName}`);
   const request = {
     input: { 
       text: text,

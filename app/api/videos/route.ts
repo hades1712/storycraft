@@ -33,7 +33,7 @@ export async function POST(req: Request): Promise<Response> {
 
   try {
     logger.debug('Generating videos in parallel...');
-    logger.debug('scenes', scenes);
+    logger.debug(`scenes: ${scenes}`);
     const storage = new Storage();
 
     const videoGenerationTasks = scenes
@@ -62,7 +62,7 @@ export async function POST(req: Request): Promise<Response> {
           const gcsUri = generateVideoResponse.response.videos[0].gcsUri;
           url = gcsUri;
         }
-        logger.debug('Video Generated!', url)
+        logger.debug(`Video Generated! ${url}`)
         return url;
       });
 

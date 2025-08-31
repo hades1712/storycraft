@@ -205,9 +205,9 @@ async function addOverlayTopRight(
           }
         })
         .on('error', (err, stdout, stderr) => {
-          logger.error('Error processing video:', err.message);
-          logger.error('ffmpeg stdout:', stdout);
-          logger.error('ffmpeg stderr:', stderr);
+          logger.error(`Error processing video: ${err.message}`);
+          logger.error(`ffmpeg stdout: ${stdout}`);
+          logger.error(`ffmpeg stderr: ${stderr}`);
           reject(err);
         })
         .on('end', (stdout, stderr) => {
@@ -521,8 +521,8 @@ async function concatenateVideos(
       })
       .on('error', (err, stdout, stderr) => {
         logger.error('Error during video concatenation:', err);
-        logger.error('FFmpeg stdout:', stdout);
-        logger.error('FFmpeg stderr:', stderr);
+        logger.error(`FFmpeg stdout: ${stdout}`);
+        logger.error(`FFmpeg stderr: ${stderr}`);
         reject(err);
       })
       .run();
@@ -677,8 +677,8 @@ export async function exportMovie(
     // }
 
 
-    logger.debug('videoUrl:', videoUrl);
-    if (vttUrl) logger.debug('vttUrl:', vttUrl);
+    logger.debug(`videoUrl: ${videoUrl}`);
+    if (vttUrl) logger.debug(`vttUrl: ${vttUrl}`);
 
     return { videoUrl, vttUrl };
   } catch (error) {
@@ -715,7 +715,7 @@ export async function concatenateMusicWithFade(
     } catch (error) {
       return reject(new Error(`Failed to get music duration from buffer: ${error}`));
     }
-    logger.debug('musicDuration:', musicDuration);
+    logger.debug(`musicDuration: ${musicDuration}`);
 
     const fadeOutStartTime = musicDuration - fadeDuration;
 
@@ -781,9 +781,9 @@ export async function concatenateMusicWithFade(
             logger.debug('FFmpeg process started with command:', commandLine);
           })
           .on('error', (err: Error, stdout: string | null, stderr: string | null) => {
-            logger.error('FFmpeg error:', err.message);
-            logger.error('FFmpeg stdout:', stdout);
-            logger.error('FFmpeg stderr:', stderr);
+            logger.error(`FFmpeg error: ${err.message}`);
+            logger.error(`FFmpeg stdout: ${stdout}`);
+            logger.error(`FFmpeg stderr: ${stderr}`);
             reject(err);
           })
           .on('end', () => {

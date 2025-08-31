@@ -7,6 +7,8 @@ import { createPartFromUri, createPartFromText } from '@google/genai';
 import { generateImage } from '@/lib/gemini'
 import logger from '@/app/logger';
 
+//export const runtime = 'nodejs';
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
@@ -17,10 +19,6 @@ export async function POST(request: NextRequest) {
     }
 
     const useR2I = true;
-
-
-
-
     if (useR2I) {
       const presentCharacters: Array<{ name: string, description: string, imageGcsUri?: string }> = scenario.characters.filter(character =>
         prompt.Subject.map(subject => subject.name).includes(character.name)
@@ -38,6 +36,7 @@ export async function POST(request: NextRequest) {
         },
       };
       const promptString = yaml.dump(orderedPrompt, { indent: 2, lineWidth: -1 })
+      logger.debug(`Prompt string:\n${promptString}`)
       const characterParts = presentCharacters.flatMap(character =>
         [createPartFromText(character.name), createPartFromUri(character.imageGcsUri!, 'image/png')]
       )
@@ -51,23 +50,23 @@ export async function POST(request: NextRequest) {
         success: true,
         imageGcsUri: imageGcsUri
       });
-    }
-
-    // Convert structured prompt to string if needed
-    const promptString = typeof prompt === 'string' ? prompt : imagePromptToString(prompt as ImagePrompt)
-
-    logger.debug('Regenerating image with prompt:', promptString)
-
-    const resultJson = await generateImageRest(promptString)
-
-    if (resultJson.predictions[0].raiFilteredReason) {
-      throw new Error(resultJson.predictions[0].raiFilteredReason)
     } else {
-      logger.debug('Generated image:', resultJson.predictions[0].gcsUri)
-      return NextResponse.json({
-        success: true,
-        imageGcsUri: resultJson.predictions[0].gcsUri
-      })
+      // Convert structured prompt to string if needed
+      const promptString = typeof prompt === 'string' ? prompt : imagePromptToString(prompt as ImagePrompt)
+
+      logger.debug(`Regenerating image with prompt: ${promptString}`)
+
+      const resultJson = await generateImageRest(promptString)
+
+      if (resultJson.predictions[0].raiFilteredReason) {
+        throw new Error(resultJson.predictions[0].raiFilteredReason)
+      } else {
+        logger.debug(`Generated image: ${resultJson.predictions[0].gcsUri}`)
+        return NextResponse.json({
+          success: true,
+          imageGcsUri: resultJson.predictions[0].gcsUri
+        })
+      }
     }
   } catch (error) {
     logger.error('Error regenerating image:', error)
@@ -89,14 +88,14 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'String prompt is required for character image' }, { status: 400 })
     }
 
-    logger.debug('Regenerating character image with prompt:', prompt)
+    logger.debug(`Regenerating character image with prompt: ${prompt}`)
 
     const resultJson = await generateImageRest(prompt, "1:1", false)
 
     if (resultJson.predictions[0].raiFilteredReason) {
       throw new Error(resultJson.predictions[0].raiFilteredReason)
     } else {
-      logger.debug('Generated character image:', resultJson.predictions[0].gcsUri)
+      logger.debug(`Generated character image: ${resultJson.predictions[0].gcsUri}`)
       return NextResponse.json({
         success: true,
         imageGcsUri: resultJson.predictions[0].gcsUri

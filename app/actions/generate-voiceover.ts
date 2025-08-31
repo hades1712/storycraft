@@ -11,7 +11,7 @@ export async function generateVoiceover(
       language: Language,
       voiceName?: string
 ): Promise<string[]> {
-  logger.debug('Generating voiceover with voice:', voiceName || 'default');
+  logger.debug(`Generating voiceover with voice: ${voiceName || 'default'}`);
   try {
     const speachAudioFiles = await Promise.all(scenes.map(async (scene) => {
         const filename = await tts(scene.voiceover, language.code, voiceName);

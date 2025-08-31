@@ -35,7 +35,7 @@ export async function uploadImage(base64: string, filename: string): Promise<str
                            : storageUri.split('/')[0]; // Basic fallback if not starting with gs://
         
         if (!bucketName) {
-            logger.error('Could not extract bucket name from STORAGE_URI:', storageUri);
+            logger.error(`Could not extract bucket name from STORAGE_URI: ${storageUri}`);
             return null;
         }
 
