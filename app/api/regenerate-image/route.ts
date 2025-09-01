@@ -6,6 +6,7 @@ import yaml from 'js-yaml'
 import { createPartFromUri, createPartFromText } from '@google/genai';
 import { generateImage } from '@/lib/gemini'
 import logger from '@/app/logger';
+import { getRAIUserMessage } from '@/lib/rai'
 
 //export const runtime = 'nodejs';
 
@@ -59,7 +60,7 @@ export async function POST(request: NextRequest) {
       const resultJson = await generateImageRest(promptString)
 
       if (resultJson.predictions[0].raiFilteredReason) {
-        throw new Error(resultJson.predictions[0].raiFilteredReason)
+        throw new Error(getRAIUserMessage(resultJson.predictions[0].raiFilteredReason))
       } else {
         logger.debug(`Generated image: ${resultJson.predictions[0].gcsUri}`)
         return NextResponse.json({
@@ -93,7 +94,7 @@ export async function PUT(request: NextRequest) {
     const resultJson = await generateImageRest(prompt, "1:1", false)
 
     if (resultJson.predictions[0].raiFilteredReason) {
-      throw new Error(resultJson.predictions[0].raiFilteredReason)
+      throw new Error(getRAIUserMessage(resultJson.predictions[0].raiFilteredReason))
     } else {
       logger.debug(`Generated character image: ${resultJson.predictions[0].gcsUri}`)
       return NextResponse.json({

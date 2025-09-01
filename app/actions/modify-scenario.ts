@@ -6,6 +6,7 @@ import { z } from "zod";
 import yaml from 'js-yaml';
 import logger from '../logger';
 import { createPartFromText, createPartFromUri } from '@google/genai';
+import { getRAIUserMessage } from '@/lib/rai';
 
 // Shared types
 export interface Character {
@@ -132,7 +133,7 @@ async function generateCharacterImage(description: string, style: string): Promi
 
     if (imageResult.predictions[0].raiFilteredReason) {
         throw new Error(
-            `Image generation failed: ${imageResult.predictions[0].raiFilteredReason}`
+            `Image generation failed: ${getRAIUserMessage(imageResult.predictions[0].raiFilteredReason)}`
         );
     }
 
@@ -152,7 +153,7 @@ async function generateSettingImage(description: string, style: string): Promise
 
     if (imageResult.predictions[0].raiFilteredReason) {
         throw new Error(
-            `Image generation failed: ${imageResult.predictions[0].raiFilteredReason}`
+            `Image generation failed: ${getRAIUserMessage(imageResult.predictions[0].raiFilteredReason)}`
         );
     }
 

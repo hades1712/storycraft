@@ -70,7 +70,7 @@ export async function generateScenario(name: string, pitch: string, numScenes: n
           };
           const resultJson = await generateImageRest(yaml.dump(orderedPrompt, { indent: 2, lineWidth: -1 }), "1:1");
           if (resultJson.predictions[0].raiFilteredReason) {
-            throw new Error(getRAIUserMessage(resultJson.predictions[0].raiFilteredReason))
+            throw new Error(getRAIUserMessage(getRAIUserMessage(resultJson.predictions[0].raiFilteredReason)))
           } else {
             logger.debug(`Generated character image: ${resultJson.predictions[0].gcsUri}`);
             return { ...character, imageGcsUri: resultJson.predictions[0].gcsUri };
@@ -93,7 +93,7 @@ export async function generateScenario(name: string, pitch: string, numScenes: n
           };
           const resultJson = await generateImageRest(yaml.dump(orderedPrompt, { indent: 2, lineWidth: -1 }), "16:9");
           if (resultJson.predictions[0].raiFilteredReason) {
-            throw new Error(resultJson.predictions[0].raiFilteredReason)
+            throw new Error(getRAIUserMessage(resultJson.predictions[0].raiFilteredReason))
           } else {
             logger.debug(`Generated setting image: ${resultJson.predictions[0].gcsUri}`);
             return { ...setting, imageGcsUri: resultJson.predictions[0].gcsUri };
@@ -325,7 +325,7 @@ export async function generateStoryboard(scenario: Scenario, numScenes: number, 
         } else {
           resultJson = await generateImageRest(imagePromptToString(scene.imagePrompt));
           if (resultJson.predictions[0].raiFilteredReason) {
-            throw new Error(resultJson.predictions[0].raiFilteredReason)
+            throw new Error(getRAIUserMessage(resultJson.predictions[0].raiFilteredReason))
           } else {
             logger.debug(`Generated image: ${resultJson.predictions[0].gcsUri}`);
             return { ...scene, imageGcsUri: resultJson.predictions[0].gcsUri };

@@ -3,6 +3,7 @@ import { videoPromptToString } from '@/lib/prompt-utils';
 import { generateSceneVideo, waitForOperation } from '@/lib/veo';
 import { Storage } from '@google-cloud/storage';
 import logger from '@/app/logger';
+import { getRAIUserMessage } from '@/lib/rai'
 
 
 const USE_COSMO = process.env.USE_COSMO === "true";
@@ -56,7 +57,7 @@ export async function POST(req: Request): Promise<Response> {
 
           if (generateVideoResponse.response.raiMediaFilteredReasons) {
             // Throw an error with the determined user-friendly message
-            throw new Error(generateVideoResponse.response.raiMediaFilteredReasons);
+            throw new Error(getRAIUserMessage(generateVideoResponse.response.raiMediaFilteredReasons));
           }
 
           const gcsUri = generateVideoResponse.response.videos[0].gcsUri;
