@@ -17,6 +17,8 @@ export async function tts(text: string, language: string, voiceName?: string): P
     languageCode: language,
   };
   const [response] = await client.listVoices(listVoicesRequest);
+
+  logger.debug(response)
   
   let selectedVoiceName: string | null | undefined;
   if (voiceName) {
@@ -27,7 +29,7 @@ export async function tts(text: string, language: string, voiceName?: string): P
   // If no voice is specified, use the default selection logic
   if (selectedVoiceName && response.voices) {
     // choose the voice with the name that contains the selected voice
-    const voice = response.voices.find((voice) => voice.name?.includes(selectedVoiceName!));
+    const voice = response.voices.find((voice) => voice.name?.includes('Chirp3-HD-'+selectedVoiceName!));
     if (voice) {
       selectedVoiceName = voice.name;
     } else {
@@ -45,12 +47,12 @@ export async function tts(text: string, language: string, voiceName?: string): P
   const request = {
     input: { 
       text: text,
-      prompt: "Voiceover for a short movie:",
+      //prompt: "Voiceover for a short movie:",
     },
     voice: {
       languageCode: language,
       name: selectedVoiceName,
-      modelName: "gemini-2.5-pro-preview-tts",
+      //modelName: "gemini-2.5-pro-preview-tts",
     },
     audioConfig: {
       audioEncoding: protos.google.cloud.texttospeech.v1.AudioEncoding.MP3

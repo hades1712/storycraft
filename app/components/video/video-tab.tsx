@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { VideoPlayer } from "./video-player"
 import { Download, Loader2 } from 'lucide-react'
 import { useState } from 'react'
+import { getDynamicImageUrl } from '@/app/actions/storageActions'
 
 interface VideoTabProps {
   videoGcsUri: string | null
@@ -21,16 +22,16 @@ export function VideoTab({
   const [isDownloading, setIsDownloading] = useState(false)
 
   const handleDownload = async () => {
+    console.log('handleDownload')
+    console.log(videoGcsUri)
     if (!videoGcsUri) return
 
     try {
       setIsDownloading(true)
       
-      // Note: For GCS URIs, we'd need to resolve to signed URL first
-      // This is a simplified version - in production you might want to 
-      // resolve the GCS URI to a signed URL for downloading
+      const result = await getDynamicImageUrl(videoGcsUri)
       const link = document.createElement('a')
-      link.href = videoGcsUri
+      link.href = result.url!
       
       // Extract filename from URI or use a default name
       const filename = videoGcsUri.split('/').pop() || 'video.mp4'
