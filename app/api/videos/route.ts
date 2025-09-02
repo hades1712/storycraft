@@ -57,7 +57,7 @@ export async function POST(req: Request): Promise<Response> {
 
           if (generateVideoResponse.response.raiMediaFilteredReasons) {
             // Throw an error with the determined user-friendly message
-            throw new Error(getRAIUserMessage(generateVideoResponse.response.raiMediaFilteredReasons));
+            throw new Error(getRAIUserMessage(generateVideoResponse.response.raiMediaFilteredReasons[0]));
           }
 
           const gcsUri = generateVideoResponse.response.videos[0].gcsUri;

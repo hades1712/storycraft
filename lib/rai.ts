@@ -2,7 +2,7 @@ export function getRAIUserMessage(reasonString: string): string {
     console.warn(`Media generation blocked due to RAI filter reason: ${reasonString}`);
         
     // Default message includes the original reason string for clarity if no code matches
-    let userMessage = `Media generation failed due to safety guidelines (Reason: ${reasonString}).`; 
+    let userMessage = reasonString; 
 
     // Check if the reason string contains specific codes
     if (reasonString.includes('58061214') || reasonString.includes('17301594')) {
@@ -38,5 +38,5 @@ export function getRAIUserMessage(reasonString: string): string {
 
     // Return the determined user-friendly message (or the default if no code matched)
     // Append the original reason string for debugging/more info if needed elsewhere
-    return `${userMessage} (Code: ${reasonString})`; 
+    return userMessage; 
 }

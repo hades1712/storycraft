@@ -104,40 +104,40 @@ export default function Home() {
 
   const handleRegenerateImage = async (index: number) => {
     if (!scenario) return;
-    
+
     setGeneratingScenes(prev => new Set([...prev, index]));
     setErrorMessage(null)
     try {
       // Regenerate a single image
       const scene = scenario.scenes[index]
-      
+
       const response = await fetch('/api/regenerate-image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt: scene.imagePrompt, scenario: scenario }),
       })
-      
+
       const result = await response.json()
-      
+
       if (!result.success) {
         throw new Error(result.errorMessage || result.error || 'Failed to regenerate image')
       }
-      
+
       const { imageGcsUri } = result
       const errorMessage = result.errorMessage
-      
+
       // Use state updater function to work with current state
       setScenario(currentScenario => {
         if (!currentScenario) return currentScenario;
-        
+
         const updatedScenes = [...currentScenario.scenes]
-        updatedScenes[index] = { 
-          ...updatedScenes[index], 
-          imageGcsUri, 
-          videoUri: undefined, 
-          errorMessage: errorMessage 
+        updatedScenes[index] = {
+          ...updatedScenes[index],
+          imageGcsUri,
+          videoUri: undefined,
+          errorMessage: errorMessage
         }
-        
+
         return {
           ...currentScenario,
           scenes: updatedScenes
@@ -157,14 +157,14 @@ export default function Home() {
 
   const handleRegenerateCharacterImage = async (characterIndex: number, name: string, description: string) => {
     if (!scenario) return;
-    
+
     setGeneratingCharacterImages(prev => new Set([...prev, characterIndex]));
     setErrorMessage(null)
     try {
       // Regenerate character image using the updated description
       const { updatedScenario: newScenarioText, newImageGcsUri } = await regenerateCharacterAndScenarioFromText(scenario.scenario, scenario.characters[characterIndex].name, name, description, style)
-      
-      
+
+
       // Update the character with the new image AND the updated description
       const updatedCharacters = [...scenario.characters];
       updatedCharacters[characterIndex] = {
@@ -173,13 +173,13 @@ export default function Home() {
         description: description, // Preserve the updated description
         imageGcsUri: newImageGcsUri
       };
-      
+
       const updatedScenario = {
         ...scenario,
         characters: updatedCharacters,
         scenario: newScenarioText
       };
-      
+
       setScenario(updatedScenario);
     } catch (error) {
       console.error("Error regenerating character image:", error)
@@ -195,14 +195,14 @@ export default function Home() {
 
   const handleRegenerateSettingImage = async (settingIndex: number, name: string, description: string) => {
     if (!scenario) return;
-    
+
     setGeneratingSettingImages(prev => new Set([...prev, settingIndex]));
     setErrorMessage(null)
     try {
       // Regenerate setting image using the updated description
       const { updatedScenario: newScenarioText, newImageGcsUri } = await regenerateSettingAndScenarioFromText(scenario.scenario, scenario.settings[settingIndex].name, name, description, style)
-      
-      
+
+
       // Update the setting with the new image AND the updated description
       const updatedSettings = [...scenario.settings];
       updatedSettings[settingIndex] = {
@@ -211,13 +211,13 @@ export default function Home() {
         description: description, // Preserve the updated description
         imageGcsUri: newImageGcsUri
       };
-      
+
       const updatedScenario = {
         ...scenario,
         settings: updatedSettings,
         scenario: newScenarioText
       };
-      
+
       setScenario(updatedScenario);
     } catch (error) {
       console.error("Error regenerating setting image:", error)
@@ -307,7 +307,7 @@ export default function Home() {
       if (voice) {
         setSelectedVoice(voice)
       }
-      
+
       const scenesVoiceovers = scenario.scenes.map((scene) => ({
         voiceover: scene.voiceover
       }))
@@ -342,7 +342,7 @@ export default function Home() {
         }
         setScenario(updatedScenario)
       }
-      
+
       const musicUrl = await generateMusic(updatedScenario.music)
       const finalScenario = {
         ...updatedScenario,
@@ -392,21 +392,26 @@ export default function Home() {
         body: JSON.stringify({ scenes: [scene] }),
       });
 
-      const { success, videoUrls } = await response.json();
-      const videoUri = success ? videoUrls[0] : FALLBACK_URL;
-      
-      // Use state updater function to work with current state
-      setScenario(currentScenario => {
-        if (!currentScenario) return currentScenario;
-        
-        const updatedScenes = [...currentScenario.scenes]
-        updatedScenes[index] = { ...updatedScenes[index], videoUri }
-        
-        return {
-          ...currentScenario,
-          scenes: updatedScenes
-        }
-      });
+      const { success, videoUrls, error } = await response.json();
+
+      if (success) {
+        const videoUri = success ? videoUrls[0] : FALLBACK_URL;
+
+        // Use state updater function to work with current state
+        setScenario(currentScenario => {
+          if (!currentScenario) return currentScenario;
+
+          const updatedScenes = [...currentScenario.scenes]
+          updatedScenes[index] = { ...updatedScenes[index], videoUri }
+
+          return {
+            ...currentScenario,
+            scenes: updatedScenes
+          }
+        });
+      } else {
+        throw new Error(error);
+      }
     } catch (error) {
       console.error("[Client] Error generating video:", error);
       setErrorMessage(
@@ -415,18 +420,33 @@ export default function Home() {
           : "An unknown error occurred while generating video"
       );
 
-      const videoUri = FALLBACK_URL;
-      
+      // if (error instanceof Error) {
+      //   return { ...scene, videoUri: FALLBACK_URL, errorMessage: error.message };
+      // } else {
+      //   return { ...scene, videoUri: FALLBACK_URL };
+      // }
+
       // Use state updater function to work with current state
       setScenario(currentScenario => {
         if (!currentScenario) return currentScenario;
-        
-        const updatedScenes = currentScenario.scenes.map((s, i) => (i === index ? { ...s, videoUri } : s));
-        
+
+        const updatedScenes = currentScenario.scenes.map((s, i) => {
+          if (i === index) {
+            if (error instanceof Error) {
+              return { ...s, videoUri: FALLBACK_URL, errorMessage: error.message }
+            } else {
+              return { ...s, videoUri: FALLBACK_URL }
+            }
+          } else {
+            return s
+          }
+        });
+
         return {
           ...currentScenario,
           scenes: updatedScenes
         }
+
       });
     } finally {
       console.log(`[Client] Generating video done`);
@@ -440,14 +460,14 @@ export default function Home() {
 
   const handleUpdateScene = (index: number, updatedScene: Scene) => {
     if (!scenario) return;
-    
+
     // Use state updater function to work with current state
     setScenario(currentScenario => {
       if (!currentScenario) return currentScenario;
-      
+
       const newScenes = [...currentScenario.scenes]
       newScenes[index] = updatedScene
-      
+
       return {
         ...currentScenario,
         scenes: newScenes
@@ -463,14 +483,14 @@ export default function Home() {
         const base64String = reader.result as string
         const imageBase64 = base64String.split(",")[1] // Remove the data URL prefix
         const resizedImageGcsUri = await resizeImage(imageBase64);
-        
+
         // Use state updater function to work with current state
         setScenario(currentScenario => {
           if (!currentScenario) return currentScenario;
-          
+
           const updatedScenes = [...currentScenario.scenes]
           updatedScenes[index] = { ...updatedScenes[index], imageGcsUri: resizedImageGcsUri, videoUri: undefined }
-          
+
           return {
             ...currentScenario,
             scenes: updatedScenes
@@ -489,11 +509,11 @@ export default function Home() {
 
   const handleUploadSettingImage = async (settingIndex: number, file: File) => {
     if (!scenario) return;
-    
+
     console.log('Starting setting image upload for index:', settingIndex);
     setErrorMessage(null);
     setGeneratingSettingImages(prev => new Set(prev).add(settingIndex));
-    
+
     try {
       const base64String = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
@@ -505,10 +525,10 @@ export default function Home() {
         };
         reader.readAsDataURL(file);
       });
-      
+
       const imageBase64 = base64String.split(",")[1]; // Remove the data URL prefix
       const resizedImageGcsUri = await resizeImage(imageBase64);
-      
+
       const setting = scenario.settings[settingIndex];
       console.log('Calling regenerateSettingAndScenarioFromImage for setting:', setting.name);
       const result = await regenerateSettingAndScenarioFromImage(
@@ -520,11 +540,11 @@ export default function Home() {
         style
       );
       console.log('regenerateSettingAndScenarioFromImage completed successfully');
-      
+
       // Update scenario with new setting description and scenario text
       setScenario(currentScenario => {
         if (!currentScenario) return currentScenario;
-        
+
         const updatedSettings = [...currentScenario.settings];
         if (result.updatedSetting) {
           updatedSettings[settingIndex] = {
@@ -534,14 +554,14 @@ export default function Home() {
             imageGcsUri: result.newImageGcsUri
           };
         }
-        
+
         return {
           ...currentScenario,
           scenario: result.updatedScenario,
           settings: updatedSettings
         };
       });
-      
+
     } catch (error) {
       console.error("Error uploading setting image:", error);
       setErrorMessage(error instanceof Error ? error.message : "An unknown error occurred while uploading the setting image");
@@ -557,11 +577,11 @@ export default function Home() {
 
   const handleUploadCharacterImage = async (characterIndex: number, file: File) => {
     if (!scenario) return;
-    
+
     console.log('Starting character image upload for index:', characterIndex);
     setErrorMessage(null);
     setGeneratingCharacterImages(prev => new Set(prev).add(characterIndex));
-    
+
     try {
       const base64String = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
@@ -573,10 +593,10 @@ export default function Home() {
         };
         reader.readAsDataURL(file);
       });
-      
+
       const imageBase64 = base64String.split(",")[1]; // Remove the data URL prefix
       const resizedImageGcsUri = await resizeImage(imageBase64);
-      
+
       const character = scenario.characters[characterIndex];
       console.log('Calling regenerateCharacterAndScenarioFromImage for character:', character.name);
       const result = await regenerateCharacterAndScenarioFromImage(
@@ -588,11 +608,11 @@ export default function Home() {
         style
       );
       console.log('regenerateCharacterAndScenarioFromImage completed successfully');
-      
+
       // Update scenario with new character description and scenario text
       setScenario(currentScenario => {
         if (!currentScenario) return currentScenario;
-        
+
         const updatedCharacters = [...currentScenario.characters];
         if (result.updatedCharacter) {
           updatedCharacters[characterIndex] = {
@@ -602,14 +622,14 @@ export default function Home() {
             imageGcsUri: result.newImageGcsUri
           };
         }
-        
+
         return {
           ...currentScenario,
           scenario: result.updatedScenario,
           characters: updatedCharacters
         };
       });
-      
+
     } catch (error) {
       console.error("Error uploading character image:", error);
       setErrorMessage(error instanceof Error ? error.message : "An unknown error occurred while uploading the character image");
@@ -724,10 +744,10 @@ export default function Home() {
     if (scenarioId) {
       setCurrentScenarioId(scenarioId);
     }
-    
+
     // Load the existing scenario data
     setScenario(selectedScenario);
-    
+
     // Populate form fields with existing data
     setName(selectedScenario.name || '');
     setPitch(selectedScenario.pitch || '');
@@ -735,12 +755,12 @@ export default function Home() {
     setLanguage(selectedScenario.language || DEFAULT_LANGUAGE);
     setNumScenes(selectedScenario.scenes?.length || 6);
     setLogoOverlay(selectedScenario.logoOverlay || null);
-    
+
     // Check if all scenes have videos to determine which tab to show
-    const allScenesHaveVideos = selectedScenario.scenes && 
-      selectedScenario.scenes.length > 0 && 
+    const allScenesHaveVideos = selectedScenario.scenes &&
+      selectedScenario.scenes.length > 0 &&
       selectedScenario.scenes.every(scene => scene.videoUri);
-    
+
     // Navigate to the appropriate tab based on the scenario's progress
     if (allScenesHaveVideos) {
       setActiveTab("editor"); // If videos are ready, go to editor
@@ -765,17 +785,17 @@ export default function Home() {
     setVttUri(null);
     setCurrentTime(0);
     setSelectedVoice(null);
-    
+
     // Clear the current scenario ID so a new one will be generated
     setCurrentScenarioId(null);
-    
+
     // Navigate to the create tab
     setActiveTab("create");
   };
 
   const handleRemoveVoiceover = (sceneIndex: number) => {
     if (!scenario) return;
-    
+
     // Create updated scenes with voiceover removed from the specific scene
     const updatedScenes = scenario.scenes.map((scene, index) => {
       if (index === sceneIndex) {
@@ -786,7 +806,7 @@ export default function Home() {
       }
       return scene;
     });
-    
+
     // Update scenario with updated scenes
     setScenario({
       ...scenario,
@@ -796,7 +816,7 @@ export default function Home() {
 
   const handleRemoveMusic = () => {
     if (!scenario) return;
-    
+
     // Remove music from scenario
     setScenario({
       ...scenario,
@@ -831,10 +851,10 @@ export default function Home() {
 
   const handleAddScene = () => {
     if (!scenario) return;
-    
+
     const newScene = createEmptyScene();
     const updatedScenes = [...scenario.scenes, newScene];
-    
+
     setScenario({
       ...scenario,
       scenes: updatedScenes
@@ -843,9 +863,9 @@ export default function Home() {
 
   const handleRemoveScene = (index: number) => {
     if (!scenario || scenario.scenes.length <= 1) return;
-    
+
     const updatedScenes = scenario.scenes.filter((_, i) => i !== index);
-    
+
     // Clear any generating scenes that are affected by the removal
     setGeneratingScenes(prev => {
       const updated = new Set<number>();
@@ -859,7 +879,7 @@ export default function Home() {
       });
       return updated;
     });
-    
+
     setScenario({
       ...scenario,
       scenes: updatedScenes
@@ -868,17 +888,17 @@ export default function Home() {
 
   const handleReorderScenes = (fromIndex: number, toIndex: number) => {
     if (!scenario || fromIndex === toIndex) return;
-    
+
     const updatedScenes = [...scenario.scenes];
     const [movedScene] = updatedScenes.splice(fromIndex, 1);
     updatedScenes.splice(toIndex, 0, movedScene);
-    
+
     // Update generating scenes indices
     setGeneratingScenes(prev => {
       const updated = new Set<number>();
       prev.forEach(sceneIndex => {
         let newIndex = sceneIndex;
-        
+
         if (sceneIndex === fromIndex) {
           newIndex = toIndex;
         } else if (fromIndex < toIndex) {
@@ -892,12 +912,12 @@ export default function Home() {
             newIndex = sceneIndex + 1;
           }
         }
-        
+
         updated.add(newIndex);
       });
       return updated;
     });
-    
+
     setScenario({
       ...scenario,
       scenes: updatedScenes
@@ -930,8 +950,8 @@ export default function Home() {
         />
 
         {activeTab === "stories" && (
-          <StoriesTab 
-            onSelectScenario={handleSelectScenario} 
+          <StoriesTab
+            onSelectScenario={handleSelectScenario}
             onCreateNewStory={handleCreateNewStory}
           />
         )}

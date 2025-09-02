@@ -7,7 +7,7 @@ import logger from '../logger';
 
 // Define a cached version of the URL fetching logic
 const getCachedSignedUrl = cache(
-  async (gcsUri: string): Promise<{ url: string | null; mimeType: string | null; }> => {
+  async (gcsUri: string, download : boolean = false): Promise<{ url: string | null; mimeType: string | null; }> => {
     logger.debug(`CACHE MISS: Fetching signed URL for ${gcsUri}`);
     if (!gcsUri || !gcsUri.startsWith('gs://')) {
       logger.error(`Invalid GCS URI passed to cached function: ${gcsUri}`);
@@ -17,7 +17,7 @@ const getCachedSignedUrl = cache(
       // get mime type from gcs uri
       const mimeType = await getMimeTypeFromGCS(gcsUri);
       // Call the original GCS function
-      const url = await getSignedUrlFromGCS(gcsUri);
+      const url = await getSignedUrlFromGCS(gcsUri, download);
       return { url, mimeType }  ;
     } catch (error) {
       logger.error(`Error getting signed URL for ${gcsUri} inside cache function:`, error);
@@ -38,10 +38,10 @@ const getCachedSignedUrl = cache(
  * @param gcsUri The gs:// URI of the object.
  * @returns A promise that resolves to the signed URL string, or null if an error occurs or URI is invalid.
  */
-export async function getDynamicImageUrl(gcsUri: string): Promise<{ url: string | null; mimeType: string | null; }> {
+export async function getDynamicImageUrl(gcsUri: string, download : boolean = false): Promise<{ url: string | null; mimeType: string | null; }> {
   // Call the cached function
   logger.debug(`getDynamicImageUrl: ${gcsUri}`);
-  return getCachedSignedUrl(gcsUri);
+  return getCachedSignedUrl(gcsUri, download);
 }
 
 export async function uploadImageToGCS(base64: string): Promise<string | null> {

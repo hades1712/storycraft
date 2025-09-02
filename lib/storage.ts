@@ -69,7 +69,7 @@ export async function uploadImage(base64: string, filename: string): Promise<str
     }
 }
 
-export async function getSignedUrlFromGCS(gcsUri: string) {
+export async function getSignedUrlFromGCS(gcsUri: string, download : boolean = false) {
   const [bucketName, ...pathSegments] = gcsUri.replace("gs://", "").split("/");
   const fileName = pathSegments.join("/");
   const options: GetSignedUrlConfig = {
@@ -77,6 +77,11 @@ export async function getSignedUrlFromGCS(gcsUri: string) {
     action: 'read',
     expires: Date.now() + 60 * 60 * 1000,
   };
+
+  if (download) {
+    options.responseDisposition = 'attachment';
+  }
+
   const [url] = await storage.bucket(bucketName).file(fileName).getSignedUrl(options);
   return url;
 }

@@ -1,6 +1,7 @@
 import { GoogleAuth } from 'google-auth-library';
 import { GoogleGenAI, Part } from '@google/genai';
 import logger from '@/app/logger';
+import { getRAIUserMessage } from './rai';
 
 const LOCATION = process.env.LOCATION
 const PROJECT_ID = process.env.PROJECT_ID
@@ -20,7 +21,7 @@ interface GenerateVideoResponse {
       gcsUri: string;
       mimeType: string;
     }>;
-    raiMediaFilteredReasons?: string;
+    raiMediaFilteredReasons?: Array<string>;
   };
   error?: { // Add an optional error field to handle operation errors
     code: number;
@@ -70,12 +71,14 @@ export async function waitForOperation(operationName: string): Promise<GenerateV
   const checkInterval = 2000; // Interval for checking operation status (in milliseconds)
 
   const pollOperation = async (): Promise<GenerateVideoResponse> => {
+    logger.debug(`poll operation ${operationName}`)
     const generateVideoResponse = await checkOperation(operationName);
 
     if (generateVideoResponse.done) {
       // Check if there was an error during the operation
       if (generateVideoResponse.error) {
-        throw new Error(`Operation failed with error: ${generateVideoResponse.error.message}`);
+        logger.error(`Operation failed with error: ${generateVideoResponse.error.message}`)
+        throw new Error(getRAIUserMessage(generateVideoResponse.error.message));
       }
       return generateVideoResponse;
     } else {
@@ -96,125 +99,7 @@ export async function generateSceneVideo(prompt: string, imageGcsUri: string): P
   const maxRetries = 5; // Maximum number of retries
   const initialDelay = 1000; // Initial delay in milliseconds (1 second)
 
-  const jsonPrompt = false
-  let modifiedPrompt: string;
-  if (jsonPrompt) {
-
-    const tools = [
-      {
-        googleSearch: {
-        }
-      },
-    ];
-    const config = {
-      thinkingConfig: {
-        thinkingBudget: -1,
-      },
-      tools,
-      responseMimeType: 'application/json',
-    };
-    const model = 'gemini-2.5-flash';
-    const contents = [
-      {
-        role: 'user',
-        parts: [
-          {
-            fileData: {
-              fileUri: imageGcsUri,
-              mimeType: `image/jpeg`,
-            },
-          },
-          {
-            text: `You are a specialist video director.
-
-Your goal is to generate a structured json prompt for a video.
-First analyse this image that will be the first frame of the video.
-
-
-From this image and this pitch :
-${prompt}
-
-
-Add some dialogs.
-Should never have music or songs.
-Total duration should be 8s.
-Generate a video prompt in YAML using this format :
-{
-  "character_name": [character's name],
-  "character_profile": {
-    "age": [character's age],
-    "height": [character's height],
-    "build": [character's physical build],
-    "skin_tone": [character's skin tone],
-    "hair": [character's hair description],
-    "eyes": [character's eye description],
-    "distinguishing_marks": [character's distinguishing marks],
-    "demeanour": [character's general demeanour]
-  },
-
-  "global_style": {
-    "camera": [overall camera style and motion],
-    "color_grade": [overall color grading style],
-    "lighting": [overall lighting style],
-    "outfit": [overall character outfit description],
-    "max_clip_duration_sec": [maximum duration of any clip in seconds],
-    "aspect_ratio": [overall video aspect ratio]
-  },
-
-  "clips": [
-    {
-      "id": [unique clip identifier],
-      "shot": {
-        "composition": [shot composition details],
-        "camera_motion": [shot camera motion],
-        "frame_rate": [shot frame rate],
-        "film_grain": [shot film grain intensity]
-      },
-      "subject": {
-        "description": [detailed subject description for the clip],
-        "wardrobe": [subject's wardrobe for the clip]
-      },
-      "scene": {
-        "location": [scene location],
-        "time_of_day": [scene time of day],
-        "environment": [scene environment details]
-      },
-      "visual_details": {
-        "action": [character's action in the clip],
-        "props": [props visible in the clip]
-      },
-      "cinematography": {
-        "lighting": [clip-specific lighting details],
-        "tone": [clip's emotional tone]
-      },
-      "color_palette": [clip-specific color palette],
-      "dialogue": {
-        "character": [character speaking the dialogue],
-        "line": [dialogue line spoken by the character],
-        "subtitles": false
-      },
-      "duration_sec": [clip duration in seconds],
-      "aspect_ratio": [clip aspect ratio]
-    }
-  ]
-}`,
-          },
-        ],
-      },
-    ];
-
-    const response = await ai.models.generateContent({
-      model,
-      config,
-      contents,
-    });
-
-    logger.debug(response.text)
-    modifiedPrompt = response.text || (prompt + '\nDialog: none\nSubtitles: off')
-  } else {
-    modifiedPrompt = prompt + '\nDialog: none\nSubtitles: off'
-  }
-
+  const modifiedPrompt = prompt + '\nSubtitles: off'
 
   logger.debug(MODEL)
   const makeRequest = async (attempt: number) => {

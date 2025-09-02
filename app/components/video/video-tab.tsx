@@ -29,7 +29,7 @@ export function VideoTab({
     try {
       setIsDownloading(true)
       
-      const result = await getDynamicImageUrl(videoGcsUri)
+      const result = await getDynamicImageUrl(videoGcsUri, true)
       const link = document.createElement('a')
       link.href = result.url!
       
