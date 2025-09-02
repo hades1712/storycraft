@@ -62,7 +62,6 @@ export default function Home() {
   const [selectedVoice, setSelectedVoice] = useState<Voice | null>(null)
 
   const GCS_VIDEOS_STORAGE_URI = process.env.GCS_VIDEOS_STORAGE_URI;
-  const FALLBACK_URL = `${GCS_VIDEOS_STORAGE_URI}4276282-hd_1920_1080_25fps.mp4`
 
   // Scenario auto-save functionality
   const { saveScenarioDebounced, getCurrentScenarioId, setCurrentScenarioId, isAuthenticated } = useScenario()
@@ -245,7 +244,7 @@ export default function Home() {
         setVttUri(result.vttUrl || null)
         setActiveTab("video")
       } else {
-        setVideoUri(FALLBACK_URL)
+        setVideoUri(null)
         setVttUri(null)
       }
     } catch (error) {
@@ -275,16 +274,16 @@ export default function Home() {
           const { success, videoUrls, error } = await response.json();
 
           if (success) {
-            return { ...scene, videoUri: videoUrls[0] || FALLBACK_URL };
+            return { ...scene, videoUri: videoUrls[0] || undefined };
           } else {
             throw new Error(error);
           }
         } catch (error) {
           console.error("Error regenerating video:", error);
           if (error instanceof Error) {
-            return { ...scene, videoUri: FALLBACK_URL, errorMessage: error.message };
+            return { ...scene, videoUri: undefined, errorMessage: error.message };
           } else {
-            return { ...scene, videoUri: FALLBACK_URL };
+            return { ...scene, videoUri: undefined };
           }
         }
       })
@@ -395,7 +394,7 @@ export default function Home() {
       const { success, videoUrls, error } = await response.json();
 
       if (success) {
-        const videoUri = success ? videoUrls[0] : FALLBACK_URL;
+        const videoUri = success ? videoUrls[0] : undefined;
 
         // Use state updater function to work with current state
         setScenario(currentScenario => {
@@ -420,12 +419,6 @@ export default function Home() {
           : "An unknown error occurred while generating video"
       );
 
-      // if (error instanceof Error) {
-      //   return { ...scene, videoUri: FALLBACK_URL, errorMessage: error.message };
-      // } else {
-      //   return { ...scene, videoUri: FALLBACK_URL };
-      // }
-
       // Use state updater function to work with current state
       setScenario(currentScenario => {
         if (!currentScenario) return currentScenario;
@@ -433,9 +426,9 @@ export default function Home() {
         const updatedScenes = currentScenario.scenes.map((s, i) => {
           if (i === index) {
             if (error instanceof Error) {
-              return { ...s, videoUri: FALLBACK_URL, errorMessage: error.message }
+              return { ...s, videoUri: undefined, errorMessage: error.message }
             } else {
-              return { ...s, videoUri: FALLBACK_URL }
+              return { ...s, videoUri: undefined }
             }
           } else {
             return s
