@@ -118,10 +118,6 @@ export default function Home() {
 
       const result = await response.json()
 
-      if (!result.success) {
-        throw new Error(result.errorMessage || result.error || 'Failed to regenerate image')
-      }
-
       const { imageGcsUri } = result
       const errorMessage = result.errorMessage
 
@@ -144,7 +140,7 @@ export default function Home() {
       })
     } catch (error) {
       console.error("Error regenerating images:", error)
-      setErrorMessage(`Failed to regenerate image(s): ${error instanceof Error ? error.message : "Unknown error"}`)
+      setErrorMessage(`${error instanceof Error ? error.message : "Unknown error"}`)
     } finally {
       setGeneratingScenes(prev => {
         const updated = new Set(prev);

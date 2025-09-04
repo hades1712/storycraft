@@ -44,13 +44,10 @@ export async function POST(request: NextRequest) {
       const settingsParts = settings.flatMap(setting =>
         [createPartFromText(setting.name), createPartFromUri(setting.imageGcsUri!, 'image/png')]
       )
-      const imageGcsUri = await generateImage(
+      const result = await generateImage(
         characterParts.concat(settingsParts).concat([createPartFromText(promptString)])
       )
-      return NextResponse.json({
-        success: true,
-        imageGcsUri: imageGcsUri
-      });
+      return NextResponse.json(result);
     } else {
       // Convert structured prompt to string if needed
       const promptString = typeof prompt === 'string' ? prompt : imagePromptToString(prompt as ImagePrompt)

@@ -312,16 +312,20 @@ export async function generateStoryboard(scenario: Scenario, numScenes: number, 
             },
           };
           const prompt = yaml.dump(orderedPrompt, { indent: 2, lineWidth: -1 })
-          const characterParts = presentCharacters.flatMap(character => 
+          const characterParts = presentCharacters.flatMap(character =>
             [createPartFromText(character.name), createPartFromUri(character.imageGcsUri!, 'image/png')]
           )
-          const settingsParts = settings.flatMap(setting => 
+          const settingsParts = settings.flatMap(setting =>
             [createPartFromText(setting.name), createPartFromUri(setting.imageGcsUri!, 'image/png')]
           )
-          const imageGcsUri = await generateImage(
+          const result = await generateImage(
             characterParts.concat(settingsParts).concat([createPartFromText(prompt)])
           )
-          return { ...scene, imageGcsUri: imageGcsUri };
+          if (result.success) {
+            return { ...scene, imageGcsUri: result.imageGcsUri };
+          } else {
+            throw { ...scene, errorMessage: result.errorMessage };
+          }
         } else {
           resultJson = await generateImageRest(imagePromptToString(scene.imagePrompt));
           if (resultJson.predictions[0].raiFilteredReason) {

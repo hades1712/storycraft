@@ -168,10 +168,10 @@ async function styleImage(imageGcsUri: string, description: string, style: strin
         description: description,
     };
     const prompt = yaml.dump(orderedPrompt, { indent: 2, lineWidth: -1 })
-    const newImageGcsUri = await generateImage(
+    const result = await generateImage(
         [createPartFromUri(imageGcsUri, 'image/png'), createPartFromText(prompt)]
     )
-    return newImageGcsUri!
+    return result.imageGcsUri!
 }
 
 export async function deleteCharacterFromScenario(
