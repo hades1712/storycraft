@@ -1,7 +1,7 @@
 'use server'
 
-import { generateImageCustomizationRest, generateImageRest } from '@/lib/imagen';
-import { getScenarioPrompt, getScenesPrompt2 } from '@/app/prompts';
+import { generateImageRest } from '@/lib/imagen';
+import { getScenarioPrompt, getScenesPrompt } from '@/app/prompts';
 import { generateContent, generateImage } from '@/lib/gemini'
 import { Type } from '@google/genai';
 import { imagePromptToString } from '@/lib/prompt-utils';
@@ -56,7 +56,7 @@ export async function generateScenario(name: string, pitch: string, numScenes: n
     }
 
     // Generate all images (characters and settings) simultaneously
-    const [charactersWithImages, settingsWithImages] = await Promise.all([
+    const [charactersWithImages, settingsWithImages, propsWithImages] = await Promise.all([
       Promise.all(scenario.characters.map(async (character, index) => {
         try {
           logger.debug(`Generating image for character ${index + 1}: ${character.name}`);
@@ -103,11 +103,36 @@ export async function generateScenario(name: string, pitch: string, numScenes: n
           logger.error('Error generating setting image:', error);
           return { ...setting, imageGcsUri: undefined };
         }
+      })),
+      Promise.all(scenario.props?.map(async (prop, index) => {
+        try {
+          logger.debug(`Generating image for prop ${index + 1}: ${prop.name}`);
+          // Define the order explicitly
+          const orderedPrompt = {
+            style: style,
+            //name: prop.name,
+            shot_type: "Close Shot",
+            description: prop.description,
+            //prohibited_elements: "people, characters, watermark, text overlay, warped face, floating limbs, distorted hands, blurry edges"
+          };
+          const resultJson = await generateImageRest(yaml.dump(orderedPrompt, { indent: 2, lineWidth: -1 }), "1:1");
+          if (resultJson.predictions[0].raiFilteredReason) {
+            throw new Error(getRAIUserMessage(resultJson.predictions[0].raiFilteredReason))
+          } else {
+            logger.debug(`Generated prop image: ${resultJson.predictions[0].gcsUri}`);
+            return { ...prop, imageGcsUri: resultJson.predictions[0].gcsUri };
+          }
+        }
+        catch (error) {
+          logger.error('Error generating prop image:', error);
+          return { ...prop, imageGcsUri: undefined };
+        }
       }))
     ]);
 
     scenario.characters = charactersWithImages
     scenario.settings = settingsWithImages
+    scenario.props = propsWithImages
     return scenario
   } catch (error) {
     logger.error('Error generating scenes:', error)
@@ -126,7 +151,7 @@ export async function generateStoryboard(scenario: Scenario, numScenes: number, 
       scenes: []
     };
 
-    const prompt = getScenesPrompt2(scenario, numScenes, style, language)
+    const prompt = getScenesPrompt(scenario, numScenes, style, language)
     const text = await generateContent(
       prompt,
       {
@@ -179,13 +204,23 @@ export async function generateStoryboard(scenario: Scenario, numScenes: number, 
                             'name': {
                               type: Type.STRING,
                               nullable: false,
-                            },
-                            'description': {
+                            }
+                          },
+                          required: ['name'],
+                        }
+                      },
+                      'Prop': {
+                        type: Type.ARRAY,
+                        nullable: false,
+                        items: {
+                          type: Type.OBJECT,
+                          properties: {
+                            'name': {
                               type: Type.STRING,
                               nullable: false,
                             }
                           },
-                          required: ['name', 'description'],
+                          required: ['name'],
                         }
                       },
                       'Context': {
@@ -197,13 +232,9 @@ export async function generateStoryboard(scenario: Scenario, numScenes: number, 
                             'name': {
                               type: Type.STRING,
                               nullable: false,
-                            },
-                            'description': {
-                              type: Type.STRING,
-                              nullable: false,
                             }
                           },
-                          required: ['name', 'description'],
+                          required: ['name'],
                         }
                       },
                       'Scene': {
@@ -211,7 +242,7 @@ export async function generateStoryboard(scenario: Scenario, numScenes: number, 
                         nullable: false,
                       }
                     },
-                    required: ['Style', 'Composition', 'Subject', 'Context', 'Scene'],
+                    required: ['Style', 'Composition', 'Subject', 'Prop', 'Context', 'Scene'],
                   },
                   'videoPrompt': {
                     type: Type.OBJECT,
@@ -298,6 +329,9 @@ export async function generateStoryboard(scenario: Scenario, numScenes: number, 
           const presentCharacters: Array<{ name: string, description: string, imageGcsUri?: string }> = newScenario.characters.filter(character =>
             scene.imagePrompt.Subject.map(subject => subject.name).includes(character.name)
           );
+          const props: Array<{ name: string, description: string, imageGcsUri?: string }> = newScenario.props.filter(prop =>
+            scene.imagePrompt.Prop?.map(prop => prop.name).includes(prop.name)
+          );
           const settings: Array<{ name: string, description: string, imageGcsUri?: string }> = newScenario.settings.filter(setting =>
             scene.imagePrompt.Context.map(context => context.name).includes(setting.name)
           );
@@ -315,11 +349,14 @@ export async function generateStoryboard(scenario: Scenario, numScenes: number, 
           const characterParts = presentCharacters.flatMap(character =>
             [createPartFromText(character.name), createPartFromUri(character.imageGcsUri!, 'image/png')]
           )
+          const propsParts = props.flatMap(prop =>
+            [createPartFromText(prop.name), createPartFromUri(prop.imageGcsUri!, 'image/png')]
+          )
           const settingsParts = settings.flatMap(setting =>
             [createPartFromText(setting.name), createPartFromUri(setting.imageGcsUri!, 'image/png')]
           )
           const result = await generateImage(
-            characterParts.concat(settingsParts).concat([createPartFromText(prompt)])
+            characterParts.concat(propsParts).concat(settingsParts).concat([createPartFromText(prompt)])
           )
           if (result.success) {
             return { ...scene, imageGcsUri: result.imageGcsUri };

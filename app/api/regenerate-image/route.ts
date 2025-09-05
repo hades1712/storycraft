@@ -24,6 +24,9 @@ export async function POST(request: NextRequest) {
       const presentCharacters: Array<{ name: string, description: string, imageGcsUri?: string }> = scenario.characters.filter(character =>
         prompt.Subject.map(subject => subject.name).includes(character.name)
       );
+      const props: Array<{ name: string, description: string, imageGcsUri?: string }> = scenario.props.filter(prop =>
+        prompt.Prop?.map(prop => prop.name).includes(prop.name)
+      );
       const settings: Array<{ name: string, description: string, imageGcsUri?: string }> = scenario.settings.filter(setting =>
         prompt.Context.map(context => context.name).includes(setting.name)
       );
@@ -41,11 +44,14 @@ export async function POST(request: NextRequest) {
       const characterParts = presentCharacters.flatMap(character =>
         [createPartFromText(character.name), createPartFromUri(character.imageGcsUri!, 'image/png')]
       )
+      const propsParts = props.flatMap(prop =>
+        [createPartFromText(prop.name), createPartFromUri(prop.imageGcsUri!, 'image/png')]
+      )
       const settingsParts = settings.flatMap(setting =>
         [createPartFromText(setting.name), createPartFromUri(setting.imageGcsUri!, 'image/png')]
       )
       const result = await generateImage(
-        characterParts.concat(settingsParts).concat([createPartFromText(promptString)])
+        characterParts.concat(propsParts).concat(settingsParts).concat([createPartFromText(promptString)])
       )
       return NextResponse.json(result);
     } else {

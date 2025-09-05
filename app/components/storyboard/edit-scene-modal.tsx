@@ -87,12 +87,40 @@ export function EditSceneModal({ isOpen, onClose, scene, sceneNumber, scenario, 
     }))
   }
 
+  const updateImagePromptProps = (selectedPropNames: string[]) => {
+    // Filter out empty or invalid prop names and convert to Subject objects
+    const validPropNames = selectedPropNames.filter(name => name && name.trim() !== '')
+    const props = validPropNames.map(propName => {
+      const prop = scenario.props.find(c => c.name === propName)
+      return {
+        name: propName,
+        description: prop?.description || ''
+      }
+    })
+    
+    setEditedScene(prev => ({
+      ...prev,
+      imagePrompt: {
+        ...prev.imagePrompt,
+        Prop: props
+      }
+    }))
+  }
+
   const getSelectedCharacterNames = (): string[] => {
     return editedScene.imagePrompt.Subject?.map(subject => subject.name).filter(name => name && name.trim() !== '') || []
   }
 
+  const getSelectedPropNames = (): string[] => {
+    return editedScene.imagePrompt.Prop?.map(prop => prop.name).filter(name => name && name.trim() !== '') || []
+  }
+
   const handleCharacterSelectionChange = (selectedCharacterNames: string[]) => {
     updateImagePromptSubjects(selectedCharacterNames)
+  }
+
+  const handlePropSelectionChange = (selectedPropNames: string[]) => {
+    updateImagePromptProps(selectedPropNames)
   }
 
   const updateImagePromptContext = (selectedSettingName: string) => {
@@ -349,6 +377,21 @@ export function EditSceneModal({ isOpen, onClose, scene, sceneNumber, scenario, 
                       selected={getSelectedCharacterNames()}
                       onChange={handleCharacterSelectionChange}
                       placeholder="Select characters for this scene..."
+                      className="ml-4"
+                    />
+                  </div>
+
+                  {/* Prop Section */}
+                  <div className="space-y-3">
+                    <label className="text-sm font-medium">Props in Scene</label>
+                    <MultiSelect
+                      options={scenario.props.map(prop => ({
+                        label: prop.name,
+                        value: prop.name
+                      }))}
+                      selected={getSelectedPropNames()}
+                      onChange={handlePropSelectionChange}
+                      placeholder="Select props for this scene..."
                       className="ml-4"
                     />
                   </div>

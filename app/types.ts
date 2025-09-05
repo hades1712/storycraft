@@ -6,8 +6,9 @@ export interface ImagePrompt {
     lighting: string;
     overall_mood: string;
   };
-  Subject: Array<{ name: string, description: string }>;
-  Context: Array<{ name: string, description: string }>;
+  Subject: Array<{ name: string, description?: string }>;
+  Prop: Array<{ name: string, description?: string }>;
+  Context: Array<{ name: string, description?: string }>;
 }
 
 export interface VideoPrompt {
@@ -44,6 +45,7 @@ export interface Scenario {
   language: Language;
   characters: Array<{ name: string, description: string, imageGcsUri?: string }>;
   settings: Array<{ name: string, description: string, imageGcsUri?: string }>;
+  props: Array<{ name: string, description: string, imageGcsUri?: string }>;
   logoOverlay?: string;
   scenes: Scene[];
 }

@@ -66,10 +66,6 @@ export async function generateImage(
                 // If no candidates, but no error, it might be a valid (empty) response, so break retry loop.
                 return { success: false, errorMessage: "No candidates found in the response."};
             }
-            logger.debug("################")
-            logger.debug('promptFeedback: ' + JSON.stringify(response.promptFeedback))
-            logger.debug('text: ' + JSON.stringify(response.text))
-            logger.debug('data: ' + JSON.stringify(response.data))
 
             const firstCandidate = response.candidates[0];
             let imageGcsUri;

@@ -19,6 +19,11 @@ export interface Setting {
     description: string;
     imageGcsUri?: string;
 }
+export interface Prop {
+    name: string;
+    description: string;
+    imageGcsUri?: string;
+}
 
 export interface ScenarioUpdateResult {
     updatedScenario: string;
@@ -27,6 +32,10 @@ export interface ScenarioUpdateResult {
         description: string;
     };
     updatedSetting?: {
+        name: string;
+        description: string;
+    };
+    updatedProp?: {
         name: string;
         description: string;
     };
@@ -45,6 +54,14 @@ const CharacterScenarioUpdateSchema = z.object({
 const SettingScenarioUpdateSchema = z.object({
     updatedScenario: z.string(),
     updatedSetting: z.object({
+        name: z.string(),
+        description: z.string(),
+    }),
+});
+
+const PropScenarioUpdateSchema = z.object({
+    updatedScenario: z.string(),
+    updatedProp: z.object({
         name: z.string(),
         description: z.string(),
     }),
@@ -72,7 +89,7 @@ async function updateScenarioText(
     oldName: string,
     newName: string,
     newDescription: string,
-    entityType: 'character' | 'setting' = 'character'
+    entityType: 'character' | 'setting' | 'prop' = 'character'
 ): Promise<string> {
     const text = await generateContent(
         `Update the following scenario to reflect ${entityType} changes. The ${entityType} previously named "${oldName}" is now named "${newName}" with the following updated description: "${newDescription}".
@@ -98,7 +115,7 @@ async function deleteFromScenarioText(
     currentScenario: string,
     oldName: string,
     oldDescription: string,
-    entityType: 'character' | 'setting' = 'character'
+    entityType: 'character' | 'setting' | 'prop' = 'character'
 ): Promise<string> {
     const text = await generateContent(
         `Delete the following ${entityType} from the scenario.
@@ -144,6 +161,26 @@ async function generateSettingImage(description: string, style: string): Promise
     const orderedPrompt = {
         style,
         shot_type: "Wide Shot",
+        description,
+    };
+    const imageResult = await generateImageRest(
+        yaml.dump(orderedPrompt, { indent: 2, lineWidth: -1 }),
+        "16:9"
+    );
+
+    if (imageResult.predictions[0].raiFilteredReason) {
+        throw new Error(
+            `Image generation failed: ${getRAIUserMessage(imageResult.predictions[0].raiFilteredReason)}`
+        );
+    }
+
+    return imageResult.predictions[0].gcsUri;
+}
+
+async function generatePropImage(description: string, style: string): Promise<string> {
+    const orderedPrompt = {
+        style,
+        shot_type: "Close Shot",
         description,
     };
     const imageResult = await generateImageRest(
@@ -215,6 +252,28 @@ export async function deleteSettingFromScenario(
         };
     } catch (error) {
         handleError('delete setting from scenario text', error);
+    }
+    throw new Error('Unreachable code');
+}
+
+export async function deletePropFromScenario(
+    currentScenario: string,
+    oldName: string,
+    oldDescription: string,
+): Promise<ScenarioUpdateResult> {
+    try {
+        const updatedScenario = await deleteFromScenarioText(
+            currentScenario,
+            oldName,
+            oldDescription,
+            'prop'
+        );
+
+        return {
+            updatedScenario,
+        };
+    } catch (error) {
+        handleError('delete prop from scenario text', error);
     }
     throw new Error('Unreachable code');
 }
@@ -357,6 +416,42 @@ export async function regenerateSettingAndScenarioFromText(
 }
 
 /**
+ * Regenerate scenario from prop changes
+ * Updates scenario text to reflect prop modifications
+ */
+export async function regeneratePropAndScenarioFromText(
+    currentScenario: string,
+    oldPropName: string,
+    newPropName: string,
+    newPropDescription: string,
+    style: string
+): Promise<ScenarioUpdateResult> {
+    try {
+        // Generate new character image
+        const newImageGcsUri = await generatePropImage(newPropDescription, style);
+
+        // Update scenario text
+        const updatedScenario = await updateScenarioText(
+            currentScenario,
+            oldPropName,
+            newPropName,
+            newPropDescription,
+            'prop'
+        );
+
+        logger.debug(updatedScenario);
+
+        return {
+            updatedScenario,
+            newImageGcsUri,
+        };
+    } catch (error) {
+        handleError('regenerate scenario from prop', error);
+    }
+    throw new Error('Unreachable code');
+}
+
+/**
  * Regenerate character and scenario from image analysis
  * Analyzes an existing character image and updates both character description and scenario
  */
@@ -417,6 +512,71 @@ Return both the updated scenario (maintaining all settings) and the updated desc
         };
     } catch (error) {
         handleError('regenerate setting and scenario', error);
+    }
+    throw new Error('Unreachable code');
+}
+
+/**
+ * Regenerate character and scenario from image analysis
+ * Analyzes an existing character image and updates both character description and scenario
+ */
+export async function regeneratePropAndScenarioFromImage(
+    currentScenario: string,
+    propName: string,
+    currentPropDescription: string,
+    imageGcsUri: string,
+    allProps: Prop[],
+    style: string
+): Promise<ScenarioUpdateResult> {
+    try {
+        const propListText = allProps
+            .map((prop) => `- ${prop.name}: ${prop.description}`)
+            .join("\n");
+
+        const text = await generateContent(
+            [{
+                fileData: {
+                    fileUri: imageGcsUri,
+                    mimeType: 'image/png',
+                }
+            },
+            `Analyze the provided image and update both the prop description and scenario text to match the visual characteristics shown.
+
+CURRENT SCENARIO:
+"${currentScenario}"
+
+ALL PROPS IN THE STORY:
+${propListText}
+
+PROP TO UPDATE (${propName}):
+"${currentPropDescription}"
+
+INSTRUCTIONS:
+1. Examine the uploaded image carefully
+2. Update ONLY the description of ${propName} to accurately reflect what you see in the image
+3. Update any references to ${propName} in the scenario text to maintain consistency with the new prop
+4. PRESERVE ALL OTHER PROPS - do not remove or modify descriptions of other props
+7. Preserve the story narrative and flow, but ensure all descriptions of ${propName} match the visual characteristics
+8. Keep the same tone and style as the original text
+
+Return both the updated scenario (maintaining all props) and the updated description for ${propName}.`],
+            {
+                ...geminiConfig,
+                responseMimeType: 'application/json',
+                responseSchema: z.toJSONSchema(PropScenarioUpdateSchema),
+            }
+        );
+
+        const propScenarioUpdate = JSON.parse(text!)
+        const newImageGcsUri = await styleImage(imageGcsUri, propScenarioUpdate.updatedProp.description, style)
+
+        return {
+            updatedScenario: propScenarioUpdate.updatedScenario,
+            updatedProp: propScenarioUpdate.updatedProp,
+            newImageGcsUri,
+        };
+    } catch (error) {
+        handleError('regenerate prop and scenario', error);
     }
     throw new Error('Unreachable code');
 }

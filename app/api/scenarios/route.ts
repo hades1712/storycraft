@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { firestore } from '@/lib/firestore'
 import { auth } from '@/auth'
 import { Timestamp } from '@google-cloud/firestore'
-import type { FirestoreScenario } from '@/types/firestore'
-import type { Scenario } from '@/app/types'
 
 export async function POST(request: NextRequest) {
   try {
@@ -36,6 +34,7 @@ export async function POST(request: NextRequest) {
       music: scenario.music || '',
       language: scenario.language || { name: 'English (United States)', code: 'en-US' },
       characters: scenario.characters || [],
+      props: scenario.props || [],
       settings: scenario.settings || [],
       scenes: (scenario.scenes || []).map((scene: any) => {
         const sceneData: any = {
@@ -134,6 +133,7 @@ export async function GET(request: NextRequest) {
         id: doc.id,
         ...doc.data()
       }))
+      
 
       return NextResponse.json({ scenarios })
     }

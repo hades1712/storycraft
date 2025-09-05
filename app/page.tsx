@@ -22,7 +22,7 @@ import { StoryboardTab } from './components/storyboard/storyboard-tab'
 import { UserProfile } from "./components/user-profile"
 import { VideoTab } from './components/video/video-tab'
 import { Scenario, Scene, TimelineLayer, type Language } from './types'
-import { regenerateCharacterAndScenarioFromText, regenerateCharacterAndScenarioFromImage, regenerateSettingAndScenarioFromImage, regenerateSettingAndScenarioFromText } from "./actions/modify-scenario"
+import { regenerateCharacterAndScenarioFromText, regenerateCharacterAndScenarioFromImage, regenerateSettingAndScenarioFromImage, regenerateSettingAndScenarioFromText, regeneratePropAndScenarioFromImage, regeneratePropAndScenarioFromText } from "./actions/modify-scenario"
 
 const styles: Style[] = [
   { name: "Photographic", image: "/styles/cinematic.jpg" },
@@ -52,6 +52,7 @@ export default function Home() {
   const [generatingScenes, setGeneratingScenes] = useState<Set<number>>(new Set());
   const [generatingCharacterImages, setGeneratingCharacterImages] = useState<Set<number>>(new Set());
   const [generatingSettingImages, setGeneratingSettingImages] = useState<Set<number>>(new Set());
+  const [generatingPropImages, setGeneratingPropImages] = useState<Set<number>>(new Set());
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [videoUri, setVideoUri] = useState<string | null>(null)
   const [vttUri, setVttUri] = useState<string | null>(null)
@@ -221,6 +222,44 @@ export default function Home() {
       setGeneratingSettingImages(prev => {
         const updated = new Set(prev);
         updated.delete(settingIndex);
+        return updated;
+      });
+    }
+  }
+
+  const handleRegeneratePropImage = async (propIndex: number, name: string, description: string) => {
+    if (!scenario) return;
+
+    setGeneratingPropImages(prev => new Set([...prev, propIndex]));
+    setErrorMessage(null)
+    try {
+      // Regenerate prop image using the updated description
+      const { updatedScenario: newScenarioText, newImageGcsUri } = await regeneratePropAndScenarioFromText(scenario.scenario, scenario.props[propIndex].name, name, description, style)
+
+
+      // Update the prop with the new image AND the updated description
+      const updatedProps = [...scenario.props];
+      updatedProps[propIndex] = {
+        ...updatedProps[propIndex],
+        name: name, // Preserve the updated name
+        description: description, // Preserve the updated description
+        imageGcsUri: newImageGcsUri
+      };
+
+      const updatedScenario = {
+        ...scenario,
+        props: updatedProps,
+        scenario: newScenarioText
+      };
+
+      setScenario(updatedScenario);
+    } catch (error) {
+      console.error("Error regenerating prop image:", error)
+      setErrorMessage(`Failed to regenerate prop image: ${error instanceof Error ? error.message : "Unknown error"}`)
+    } finally {
+      setGeneratingPropImages(prev => {
+        const updated = new Set(prev);
+        updated.delete(propIndex);
         return updated;
       });
     }
@@ -397,7 +436,7 @@ export default function Home() {
           if (!currentScenario) return currentScenario;
 
           const updatedScenes = [...currentScenario.scenes]
-          updatedScenes[index] = { ...updatedScenes[index], videoUri }
+          updatedScenes[index] = { ...updatedScenes[index], videoUri, errorMessage: undefined }
 
           return {
             ...currentScenario,
@@ -559,6 +598,74 @@ export default function Home() {
       setGeneratingSettingImages(prev => {
         const newSet = new Set(prev);
         newSet.delete(settingIndex);
+        return newSet;
+      });
+    }
+  }
+
+  const handleUploadPropImage = async (propIndex: number, file: File) => {
+    if (!scenario) return;
+
+    console.log('Starting prop image upload for index:', propIndex);
+    setErrorMessage(null);
+    setGeneratingPropImages(prev => new Set(prev).add(propIndex));
+
+    try {
+      const base64String = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          resolve(reader.result as string);
+        };
+        reader.onerror = () => {
+          reject(new Error("Failed to read the image file"));
+        };
+        reader.readAsDataURL(file);
+      });
+
+      const imageBase64 = base64String.split(",")[1]; // Remove the data URL prefix
+      const resizedImageGcsUri = await resizeImage(imageBase64);
+
+      const prop = scenario.props[propIndex];
+      console.log('Calling regeneratePropAndScenarioFromImage for prop:', prop.name);
+      const result = await regeneratePropAndScenarioFromImage(
+        scenario.scenario,
+        prop.name,
+        prop.description,
+        resizedImageGcsUri,
+        scenario.props,
+        style
+      );
+      console.log('regeneratePropAndScenarioFromImage completed successfully');
+
+      // Update scenario with new prop description and scenario text
+      setScenario(currentScenario => {
+        if (!currentScenario) return currentScenario;
+
+        const updatedProps = [...currentScenario.props];
+        if (result.updatedProp) {
+          updatedProps[propIndex] = {
+            ...updatedProps[propIndex],
+            description: result.updatedProp.description,
+            name: result.updatedProp.name,
+            imageGcsUri: result.newImageGcsUri
+          };
+        }
+
+        return {
+          ...currentScenario,
+          scenario: result.updatedScenario,
+          props: updatedProps
+        };
+      });
+
+    } catch (error) {
+      console.error("Error uploading prop image:", error);
+      setErrorMessage(error instanceof Error ? error.message : "An unknown error occurred while uploading the prop image");
+    } finally {
+      console.log('Finishing prop image upload for index:', propIndex);
+      setGeneratingPropImages(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(propIndex);
         return newSet;
       });
     }
@@ -824,6 +931,7 @@ export default function Home() {
           overall_mood: 'Neutral'
         },
         Subject: [],
+        Prop: [],
         Context: []
       },
       videoPrompt: {
@@ -976,6 +1084,9 @@ export default function Home() {
             onRegenerateSettingImage={handleRegenerateSettingImage}
             onUploadSettingImage={handleUploadSettingImage}
             generatingSettingImages={generatingSettingImages}
+            onRegeneratePropImage={handleRegeneratePropImage}
+            onUploadPropImage={handleUploadPropImage}
+            generatingPropImages={generatingPropImages}
           />
         )}
 

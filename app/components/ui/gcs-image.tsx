@@ -34,6 +34,7 @@ export function GcsImage({ gcsUri, alt, className, fill = true, sizes }: GcsImag
       }
     },
     enabled: !!gcsUri,
+    staleTime: 60 * 1000 * 50, // 50 minutes
   })
 
   const imageUrl = imageData?.url || null
@@ -58,7 +59,6 @@ export function GcsImage({ gcsUri, alt, className, fill = true, sizes }: GcsImag
           className={className}
           fill={fill}
           sizes={sizes}
-          priority
         />
       </div>
     )
@@ -73,7 +73,6 @@ export function GcsImage({ gcsUri, alt, className, fill = true, sizes }: GcsImag
           className={className}
           fill={fill}
           sizes={sizes}
-          priority
           onError={(e) => {
             const target = e.target as HTMLImageElement
             target.src = "/placeholder.svg"

@@ -31,7 +31,15 @@ function ImagePromptDisplay({ imagePrompt }: { imagePrompt: ImagePrompt }) {
         <span className="font-medium text-xs">Subjects:</span>
         {imagePrompt.Subject.map((subject, index) => (
           <p key={index} className="text-sm text-card-foreground/80 ml-2">
-            • {subject.name}: {subject.description}
+            • {subject.name}
+          </p>
+        ))}
+      </div>
+      <div>
+        <span className="font-medium text-xs">Props:</span>
+        {imagePrompt.Prop?.map((prop, index) => (
+          <p key={index} className="text-sm text-card-foreground/80 ml-2">
+            • {prop.name}
           </p>
         ))}
       </div>
@@ -39,7 +47,7 @@ function ImagePromptDisplay({ imagePrompt }: { imagePrompt: ImagePrompt }) {
         <span className="font-medium text-xs">Context:</span>
         {imagePrompt.Context.map((context, index) => (
           <p key={index} className="text-sm text-card-foreground/80 ml-2">
-            • {context.name}: {context.description}
+            • {context.name}
           </p>
         ))}
       </div>
@@ -115,6 +123,8 @@ export function StoryboardTab({
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
   const [activeTabs, setActiveTabs] = useState<{ [key: number]: string }>({})
+
+  console.log(JSON.stringify(scenario))
 
   // Handle current slide index when scenes change
   useEffect(() => {
@@ -238,7 +248,7 @@ export function StoryboardTab({
                 <div className="w-2/3">
                   <div className="p-4 bg-card rounded-lg border h-full">
                     <h3 className="font-semibold mb-4 text-card-foreground">Scene {index + 1}</h3>
-                    
+
                     {/* Tab Navigation */}
                     <div className="flex border-b border-border mb-4">
                       <div
@@ -251,11 +261,10 @@ export function StoryboardTab({
                             setActiveTab(index, 'general')
                           }
                         }}
-                        className={`px-3 py-2 text-sm font-medium border-b-2 transition-colors cursor-pointer select-none ${
-                          activeTabs[index] === 'general'
+                        className={`px-3 py-2 text-sm font-medium border-b-2 transition-colors cursor-pointer select-none ${activeTabs[index] === 'general'
                             ? 'border-primary text-primary'
                             : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
-                        }`}
+                          }`}
                       >
                         General
                       </div>
@@ -269,11 +278,10 @@ export function StoryboardTab({
                             setActiveTab(index, 'image')
                           }
                         }}
-                        className={`px-3 py-2 text-sm font-medium border-b-2 transition-colors cursor-pointer select-none ${
-                          activeTabs[index] === 'image'
+                        className={`px-3 py-2 text-sm font-medium border-b-2 transition-colors cursor-pointer select-none ${activeTabs[index] === 'image'
                             ? 'border-primary text-primary'
                             : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
-                        }`}
+                          }`}
                       >
                         Image Prompt
                       </div>
@@ -287,16 +295,15 @@ export function StoryboardTab({
                             setActiveTab(index, 'video')
                           }
                         }}
-                        className={`px-3 py-2 text-sm font-medium border-b-2 transition-colors cursor-pointer select-none ${
-                          activeTabs[index] === 'video'
+                        className={`px-3 py-2 text-sm font-medium border-b-2 transition-colors cursor-pointer select-none ${activeTabs[index] === 'video'
                             ? 'border-primary text-primary'
                             : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
-                        }`}
+                          }`}
                       >
                         Video Prompt
                       </div>
                     </div>
-                    
+
                     {/* Tab Content */}
                     {activeTabs[index] === 'general' && (
                       <div className="space-y-4">
@@ -310,13 +317,13 @@ export function StoryboardTab({
                         </div>
                       </div>
                     )}
-                    
+
                     {activeTabs[index] === 'image' && (
                       <div className="space-y-4">
                         <ImagePromptDisplay imagePrompt={scene.imagePrompt} />
                       </div>
                     )}
-                    
+
                     {activeTabs[index] === 'video' && (
                       <div className="space-y-4">
                         <VideoPromptDisplay videoPrompt={scene.videoPrompt} />
@@ -477,7 +484,7 @@ export function StoryboardTab({
               <span className="sr-only">Slideshow view</span>
             </Button>
           </div>
-          
+
           {/* Display Mode Slider */}
           <div className="flex items-center gap-2 ml-4">
             <Image className="h-4 w-4 text-muted-foreground" />

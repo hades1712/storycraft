@@ -56,6 +56,7 @@ export function StoriesTab({ onSelectScenario, onCreateNewStory }: StoriesTabPro
       music: scenario.music,
       language: scenario.language,
       characters: scenario.characters,
+      props: scenario.props,
       settings: scenario.settings,
       scenes: scenario.scenes,
       musicUrl: scenario.musicUrl,

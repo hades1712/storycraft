@@ -23,7 +23,8 @@ export interface FirestoreScenario {
       code: string
     }
     characters: Array<{ name: string, description: string, imageGcsUri?: string }>
-    settings: Array<{ name: string, description: string }>
+    props: Array<{ name: string, description: string, imageGcsUri?: string }>
+    settings: Array<{ name: string, description: string, imageGcsUri?: string }>
     logoOverlay?: string
     scenes: Array<{
       imagePrompt: ImagePrompt
