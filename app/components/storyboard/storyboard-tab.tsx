@@ -124,8 +124,6 @@ export function StoryboardTab({
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
   const [activeTabs, setActiveTabs] = useState<{ [key: number]: string }>({})
 
-  console.log(JSON.stringify(scenario))
-
   // Handle current slide index when scenes change
   useEffect(() => {
     if (currentSlide >= scenes.length && scenes.length > 0) {
@@ -143,6 +141,8 @@ export function StoryboardTab({
     })
     setActiveTabs(newActiveTabs)
   }, [scenes.length])
+
+  console.log(JSON.stringify(scenario, null, 2))
 
   const setActiveTab = (sceneIndex: number, tab: string) => {
     setActiveTabs(prev => ({
@@ -371,7 +371,7 @@ export function StoryboardTab({
             <div className="aspect-video relative bg-black rounded-lg overflow-hidden max-h-[60vh] group">
               {displayMode === 'video' && scenes[currentSlide].videoUri ? (
                 <div className="absolute inset-0">
-                  <VideoPlayer videoGcsUri={scenes[currentSlide].videoUri} />
+                  <VideoPlayer videoGcsUri={scenes[currentSlide].videoUri} aspectRatio={scenario.aspectRatio} />
                 </div>
               ) : (
                 <GcsImage

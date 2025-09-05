@@ -77,7 +77,7 @@ export function SceneData({
       onDrop={onDrop}
     >
       <div className="flex flex-col">
-        <div className="relative w-full aspect-video overflow-hidden group">
+        <div className="relative w-full aspect-[11/6] overflow-hidden group">
           {isGenerating && (
             <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-10">
               <Loader2 className="h-8 w-8 text-white animate-spin" />
@@ -85,13 +85,13 @@ export function SceneData({
           )}
           {displayMode === 'video' && scene.videoUri ? (
             <div className="absolute inset-0">
-              <VideoPlayer videoGcsUri={scene.videoUri} />
+              <VideoPlayer videoGcsUri={scene.videoUri} aspectRatio={scenario.aspectRatio} />
             </div>
           ) : (
             <GcsImage
               gcsUri={scene.imageGcsUri || null}
               alt={`Scene ${sceneNumber}`}
-              className="absolute inset-0 w-full h-full object-cover object-center rounded-t-lg"
+              className="absolute inset-0 w-full h-full object-contain object-center rounded-t-lg"
               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
             />
           )}

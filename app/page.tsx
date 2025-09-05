@@ -41,6 +41,7 @@ export default function Home() {
   const [pitch, setPitch] = useState('')
   const [name, setName] = useState('')
   const [style, setStyle] = useState('Photographic')
+  const [aspectRatio, setAspectRatio] = useState('16:9')
   const [language, setLanguage] = useState<Language>(DEFAULT_LANGUAGE)
   const [logoOverlay, setLogoOverlay] = useState<string | null>(null)
   const [isUploading, setIsUploading] = useState(false);
@@ -88,7 +89,7 @@ export default function Home() {
     setIsLoading(true)
     setErrorMessage(null)
     try {
-      const scenario = await generateScenario(name, pitch, numScenes, style, language)
+      const scenario = await generateScenario(name, pitch, numScenes, style, aspectRatio, language)
       setScenario(scenario)
       if (logoOverlay) {
         scenario.logoOverlay = logoOverlay
@@ -303,7 +304,7 @@ export default function Home() {
           const response = await fetch('/api/videos', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ scenes: [scene], language: scenario?.language }),
+            body: JSON.stringify({ scenes: [scene], language: scenario?.language, aspectRatio: scenario?.aspectRatio }),
           });
 
           const { success, videoUrls, error } = await response.json();
@@ -423,7 +424,7 @@ export default function Home() {
       const response = await fetch('/api/videos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ scenes: [scene] }),
+        body: JSON.stringify({ scenes: [scene], language: scenario?.language, aspectRatio: scenario?.aspectRatio }),
       });
 
       const { success, videoUrls, error } = await response.json();
@@ -1063,6 +1064,8 @@ export default function Home() {
             setNumScenes={setNumScenes}
             style={style}
             setStyle={setStyle}
+            aspectRatio={aspectRatio}
+            setAspectRatio={setAspectRatio}
             language={language}
             setLanguage={setLanguage}
             isLoading={isLoading}

@@ -754,7 +754,7 @@ export function ScenarioTab({ scenario, onGenerateStoryBoard, isLoading, onScena
                                     <GcsImage
                                         gcsUri={setting.imageGcsUri || null}
                                         alt={`Setting ${setting.name}`}
-                                        className="object-cover rounded-lg shadow-md"
+                                        className="object-contain rounded-lg shadow-md"
                                         sizes="200px"
                                     />
                                     <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">

@@ -207,13 +207,13 @@ export function EditSceneModal({ isOpen, onClose, scene, sceneNumber, scenario, 
             <div className="relative w-full h-[300px] overflow-hidden rounded-lg bg-muted">
               {displayMode === 'video' && scene.videoUri ? (
                 <div className="absolute inset-0">
-                  <VideoPlayer videoGcsUri={scene.videoUri} />
+                  <VideoPlayer videoGcsUri={scene.videoUri} aspectRatio={scenario.aspectRatio} />
                 </div>
               ) : (
                 <GcsImage
                   gcsUri={editedScene.imageGcsUri || null}
                   alt={`Scene ${sceneNumber}`}
-                  className="w-full h-full object-cover object-center"
+                  className="w-full h-full object-contain object-center"
                 />
               )}
             </div>

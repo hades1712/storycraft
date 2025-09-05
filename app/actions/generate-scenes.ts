@@ -12,7 +12,7 @@ import { getRAIUserMessage } from '@/lib/rai'
 import { Scenario, Language } from "../types"
 import logger from '../logger';
 
-export async function generateScenario(name: string, pitch: string, numScenes: number, style: string, language: Language): Promise<Scenario> {
+export async function generateScenario(name: string, pitch: string, numScenes: number, style: string, aspectRatio: string, language: Language): Promise<Scenario> {
   try {
     const prompt = getScenarioPrompt(pitch, numScenes, style, language);
     logger.debug('Create a scenario')
@@ -37,12 +37,13 @@ export async function generateScenario(name: string, pitch: string, numScenes: n
       const parsedScenario = JSON.parse(text);
       logger.debug(parsedScenario)
 
-      // Ensure the language is set correctly and add name, pitch, and style
+      // Ensure the language is set correctly and add name, pitch, style, and aspect ratio
       scenario = {
         ...parsedScenario,
         name: name,
         pitch: pitch,
         style: style,
+        aspectRatio: aspectRatio,
         language: {
           name: language.name,
           code: language.code
@@ -91,7 +92,7 @@ export async function generateScenario(name: string, pitch: string, numScenes: n
             description: setting.description,
             //prohibited_elements: "people, characters, watermark, text overlay, warped face, floating limbs, distorted hands, blurry edges"
           };
-          const resultJson = await generateImageRest(yaml.dump(orderedPrompt, { indent: 2, lineWidth: -1 }), "16:9");
+          const resultJson = await generateImageRest(yaml.dump(orderedPrompt, { indent: 2, lineWidth: -1 }), aspectRatio);
           if (resultJson.predictions[0].raiFilteredReason) {
             throw new Error(getRAIUserMessage(resultJson.predictions[0].raiFilteredReason))
           } else {

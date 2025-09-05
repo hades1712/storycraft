@@ -1,4 +1,4 @@
-import { Scene } from '@/app/types';
+import { Language, Scene } from '@/app/types';
 import { videoPromptToString } from '@/lib/prompt-utils';
 import { generateSceneVideo, waitForOperation } from '@/lib/veo';
 import { Storage } from '@google-cloud/storage';
@@ -16,6 +16,13 @@ const placeholderVideoUrls = [
   `${GCS_VIDEOS_STORAGE_URI}cats1.mp4`,
 ];
 
+const placeholderVideoUrls916 = [
+  //`${GCS_VIDEOS_STORAGE_URI}cat_1_9_16.mp4`,
+  `${GCS_VIDEOS_STORAGE_URI}cat_2_9_16.mp4`,
+  `${GCS_VIDEOS_STORAGE_URI}dog_9_16.mp4`,
+  `${GCS_VIDEOS_STORAGE_URI}dog_2_9_16.mp4`,
+];
+
 /**
  * Handles POST requests to generate videos from a list of scenes.
  *
@@ -26,8 +33,10 @@ const placeholderVideoUrls = [
  */
 export async function POST(req: Request): Promise<Response> {
 
-  const { scenes }: {
+  const { scenes, language, aspectRatio }: {
     scenes: Array<Scene>
+    language: Language
+    aspectRatio: string
   } = await req.json();
 
 
@@ -44,11 +53,16 @@ export async function POST(req: Request): Promise<Response> {
         let url: string;
         if (USE_COSMO) {
           // randomize the placeholder video urls
-          url = placeholderVideoUrls[Math.floor(Math.random() * placeholderVideoUrls.length)];
+          logger.debug(`aspectRatio: ${aspectRatio}`);
+          if (aspectRatio === "9:16") {
+            url = placeholderVideoUrls916[Math.floor(Math.random() * placeholderVideoUrls916.length)];
+          } else {
+            url = placeholderVideoUrls[Math.floor(Math.random() * placeholderVideoUrls.length)];
+          }
         } else {
           const promptString = typeof scene.videoPrompt === 'string' ? scene.videoPrompt : videoPromptToString(scene.videoPrompt);
           logger.debug(promptString)
-          const operationName = await generateSceneVideo(promptString, scene.imageGcsUri!);
+          const operationName = await generateSceneVideo(promptString, scene.imageGcsUri!, aspectRatio);
           logger.debug(`Operation started for scene ${index + 1}`);
 
           const generateVideoResponse = await waitForOperation(operationName);

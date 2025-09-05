@@ -38,6 +38,7 @@ export interface Scenario {
   pitch: string;
   scenario: string;
   style: string;
+  aspectRatio: string;
   genre: string;
   mood: string;
   music: string;

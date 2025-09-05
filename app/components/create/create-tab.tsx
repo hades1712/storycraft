@@ -51,6 +51,11 @@ const LANGUAGES: Language[] = [
   { name: "Vietnamese (Vietnam)", code: "vi-VN" }
 ];
 
+const ASPECT_RATIOS = [
+  { name: "16:9", value: "16:9", icon: "aspect-video" },
+  { name: "9:16", value: "9:16", icon: "aspect-square" }
+];
+
 interface CreateTabProps {
   name: string
   setName: (name: string) => void
@@ -60,6 +65,8 @@ interface CreateTabProps {
   setNumScenes: (num: number) => void
   style: string
   setStyle: (style: string) => void
+  aspectRatio: string
+  setAspectRatio: (aspectRatio: string) => void
   language: Language
   setLanguage: (language: Language) => void
   isLoading: boolean
@@ -77,6 +84,8 @@ export function CreateTab({
   setNumScenes,
   style,
   setStyle,
+  aspectRatio,
+  setAspectRatio,
   language,
   setLanguage,
   isLoading,
@@ -166,6 +175,37 @@ export function CreateTab({
               onChange={(e) => setNumScenes(Math.max(1, Math.min(20, parseInt(e.target.value) || 1)))}
               className="w-20"
             />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Aspect Ratio:</label>
+            <div className="flex space-x-6">
+              {ASPECT_RATIOS.map((ratio) => (
+                <div key={ratio.value} className="flex flex-col items-center space-y-2">
+                  <div
+                    className={`w-16 h-16 rounded-lg border-2 flex items-center justify-center cursor-pointer transition-colors ${
+                      aspectRatio === ratio.value
+                        ? 'bg-primary border-primary text-primary-foreground'
+                        : 'border-gray-300 bg-white hover:border-gray-400'
+                    }`}
+                    onClick={() => setAspectRatio(ratio.value)}
+                  >
+                    <div
+                      className={`border-2 rounded-sm flex items-center justify-center transition-colors ${
+                        aspectRatio === ratio.value
+                          ? 'border-primary-foreground bg-primary-foreground'
+                          : 'border-gray-600 bg-gray-600'
+                      }`}
+                      style={{
+                        aspectRatio: ratio.value === '16:9' ? '16/9' : '9/16',
+                        width: ratio.value === '16:9' ? '36px' : '20px',
+                        height: ratio.value === '16:9' ? '20px' : '36px'
+                      }}
+                    />
+                  </div>
+                  <span className="text-xs text-gray-600">{ratio.name}</span>
+                </div>
+              ))}
+            </div>
           </div>
           <div className="space-y-2">
             <StyleSelector styles={styles} onSelect={setStyle} />
