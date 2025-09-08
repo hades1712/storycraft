@@ -84,12 +84,12 @@ export default function Home() {
     }
   }, [scenario, isAuthenticated, saveScenarioDebounced, getCurrentScenarioId])
 
-  const handleGenerate = async () => {
+  const handleGenerate = async (modelName: string = 'gemini-2.5-flash', thinkingBudget: number = 0) => {
     if (pitch.trim() === '' || numScenes < 1) return
     setIsLoading(true)
     setErrorMessage(null)
     try {
-      const scenario = await generateScenario(name, pitch, numScenes, style, aspectRatio, language)
+      const scenario = await generateScenario(name, pitch, numScenes, style, aspectRatio, language, modelName, thinkingBudget)
       setScenario(scenario)
       if (logoOverlay) {
         scenario.logoOverlay = logoOverlay
@@ -292,7 +292,7 @@ export default function Home() {
     }
   }
 
-  const handleGenerateAllVideos = async () => {
+  const handleGenerateAllVideos = async (model: string = "veo-3.0-generate-001", generateAudio: boolean = true) => {
     if (!scenario) return;
     setErrorMessage(null);
     console.log("[Client] Generating videos for all scenes - START");
@@ -304,7 +304,7 @@ export default function Home() {
           const response = await fetch('/api/videos', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ scenes: [scene], language: scenario?.language, aspectRatio: scenario?.aspectRatio }),
+            body: JSON.stringify({ scenes: [scene], language: scenario?.language, aspectRatio: scenario?.aspectRatio, model, generateAudio }),
           });
 
           const { success, videoUrls, error } = await response.json();
@@ -1070,7 +1070,7 @@ export default function Home() {
             setLanguage={setLanguage}
             isLoading={isLoading}
             errorMessage={errorMessage}
-            onGenerate={handleGenerate}
+            onGenerate={(modelName, thinkingBudget) => handleGenerate(modelName, thinkingBudget)}
             styles={styles}
           />
         )}
@@ -1099,7 +1099,7 @@ export default function Home() {
             isVideoLoading={isVideoLoading}
             generatingScenes={generatingScenes}
             errorMessage={errorMessage}
-            onGenerateAllVideos={handleGenerateAllVideos}
+            onGenerateAllVideos={(model, generateAudio) => handleGenerateAllVideos(model, generateAudio)}
             onUpdateScene={handleUpdateScene}
             onRegenerateImage={handleRegenerateImage}
             onGenerateVideo={handleGenerateVideo}

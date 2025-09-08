@@ -43,11 +43,11 @@ async function getAccessToken(): Promise<string> {
   }
 }
 
-async function checkOperation(operationName: string): Promise<GenerateVideoResponse> {
+async function checkOperation(operationName: string, model: string = "veo-3.0-generate-001"): Promise<GenerateVideoResponse> {
   const token = await getAccessToken();
 
   const response = await fetch(
-    `https://${LOCATION}-aiplatform.googleapis.com/v1/projects/${PROJECT_ID}/locations/${LOCATION}/publishers/google/models/${MODEL}:fetchPredictOperation`,
+    `https://${LOCATION}-aiplatform.googleapis.com/v1/projects/${PROJECT_ID}/locations/${LOCATION}/publishers/google/models/${model}:fetchPredictOperation`,
     {
       method: 'POST',
       headers: {
@@ -67,12 +67,12 @@ async function checkOperation(operationName: string): Promise<GenerateVideoRespo
   return jsonResponse as GenerateVideoResponse;
 }
 
-export async function waitForOperation(operationName: string): Promise<GenerateVideoResponse> {
+export async function waitForOperation(operationName: string, model: string = "veo-3.0-generate-001"): Promise<GenerateVideoResponse> {
   const checkInterval = 2000; // Interval for checking operation status (in milliseconds)
 
   const pollOperation = async (): Promise<GenerateVideoResponse> => {
     logger.debug(`poll operation ${operationName}`)
-    const generateVideoResponse = await checkOperation(operationName);
+    const generateVideoResponse = await checkOperation(operationName, model);
 
     if (generateVideoResponse.done) {
       // Check if there was an error during the operation
@@ -94,18 +94,18 @@ async function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-export async function generateSceneVideo(prompt: string, imageGcsUri: string, aspectRatio: string = "16:9"): Promise<string> {
+export async function generateSceneVideo(prompt: string, imageGcsUri: string, aspectRatio: string = "16:9", model: string = "veo-3.0-generate-001", generateAudio: boolean = true): Promise<string> {
   const token = await getAccessToken();
   const maxRetries = 5; // Maximum number of retries
   const initialDelay = 1000; // Initial delay in milliseconds (1 second)
 
   const modifiedPrompt = prompt + '\nSubtitles: off'
 
-  logger.debug(MODEL)
+  logger.debug(model)
   const makeRequest = async (attempt: number) => {
     try {
       const response = await fetch(
-        `https://${LOCATION}-aiplatform.googleapis.com/v1/projects/${PROJECT_ID}/locations/${LOCATION}/publishers/google/models/${MODEL}:predictLongRunning`,
+        `https://${LOCATION}-aiplatform.googleapis.com/v1/projects/${PROJECT_ID}/locations/${LOCATION}/publishers/google/models/${model}:predictLongRunning`,
         {
           method: 'POST',
           headers: {
@@ -126,7 +126,7 @@ export async function generateSceneVideo(prompt: string, imageGcsUri: string, as
               storageUri: GCS_VIDEOS_STORAGE_URI,
               sampleCount: 1,
               aspectRatio: aspectRatio,
-              generateAudio: true,
+              generateAudio: generateAudio,
             },
           }),
         }

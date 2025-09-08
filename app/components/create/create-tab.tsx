@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -10,7 +11,8 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import { BookOpen, Loader2 } from 'lucide-react'
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { BookOpen, Loader2, ChevronDown } from 'lucide-react'
 import { type Language } from '../../types'
 import { StyleSelector, type Style } from "./style-selector"
 
@@ -56,6 +58,29 @@ const ASPECT_RATIOS = [
   { name: "9:16", value: "9:16", icon: "aspect-square" }
 ];
 
+const MODEL_OPTIONS = [
+  { 
+    label: "Generate Scenario with Gemini 2.5 Flash", 
+    modelName: "gemini-2.5-flash", 
+    thinkingBudget: 0 
+  },
+  { 
+    label: "Generate Scenario with Gemini 2.5 Flash Thinking", 
+    modelName: "gemini-2.5-flash", 
+    thinkingBudget: -1 
+  },
+  { 
+    label: "Generate Scenario with Gemini 2.5 Pro", 
+    modelName: "gemini-2.5-pro", 
+    thinkingBudget: 0 
+  },
+  { 
+    label: "Generate Scenario with Gemini 2.5 Pro Thinking", 
+    modelName: "gemini-2.5-pro", 
+    thinkingBudget: -1 
+  }
+];
+
 interface CreateTabProps {
   name: string
   setName: (name: string) => void
@@ -71,7 +96,7 @@ interface CreateTabProps {
   setLanguage: (language: Language) => void
   isLoading: boolean
   errorMessage: string | null
-  onGenerate: () => Promise<void>
+  onGenerate: (modelName: string, thinkingBudget: number) => Promise<void>
   styles: Style[]
 }
 
@@ -93,26 +118,63 @@ export function CreateTab({
   onGenerate,
   styles,
 }: CreateTabProps) {
+  const [selectedModel, setSelectedModel] = useState(MODEL_OPTIONS[0])
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false)
+
+  const handleGenerateClick = () => {
+    onGenerate(selectedModel.modelName, selectedModel.thinkingBudget)
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex justify-end">
-        <Button
-          onClick={onGenerate}
-          disabled={isLoading || pitch.trim() === '' || name.trim() === ''}
-          className="bg-primary text-primary-foreground hover:bg-primary/90"
-        >
-          {isLoading ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Generating...
-            </>
-          ) : (
-            <>
-              <BookOpen className="mr-2 h-4 w-4" />
-              Generate Scenario with Gemini 2.5 Flash
-            </>
-          )}
-        </Button>
+        <div className="flex">
+          <Button
+            onClick={handleGenerateClick}
+            disabled={isLoading || pitch.trim() === '' || name.trim() === ''}
+            className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-r-none"
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Generating...
+              </>
+            ) : (
+              <>
+                <BookOpen className="mr-2 h-4 w-4" />
+                {selectedModel.label}
+              </>
+            )}
+          </Button>
+          <Popover open={isDropdownOpen} onOpenChange={setIsDropdownOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                className="px-2 border-l-0 rounded-l-none"
+                disabled={isLoading || pitch.trim() === '' || name.trim() === ''}
+              >
+                <ChevronDown className="h-4 w-4" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-80 p-0" align="end">
+              <div className="py-1">
+                {MODEL_OPTIONS.map((option, index) => (
+                  <button
+                    key={index}
+                    className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 flex items-center"
+                    onClick={() => {
+                      setSelectedModel(option)
+                      setIsDropdownOpen(false)
+                    }}
+                  >
+                    <BookOpen className="mr-2 h-4 w-4" />
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </PopoverContent>
+          </Popover>
+        </div>
       </div>
       <div className='max-w-xl mx-auto '>
         <div className="space-y-2">

@@ -1,17 +1,20 @@
 props?
+9/16
+
 assets > 3
 
+choose model | google_searc + url_context
 
-fix GCSImage
-google_searc + url_context
-9/16
 conversational edit images
-fix image generation language Imagen4
-voice description
-voiceover single quotes bug?
-download image full size
 
+voice description
+
+fix image generation language Imagen4
+voiceover single quotes bug?
 logo text overlays
+
+download image full size
 upload music
 fix delete character/settings/props loader
 character poses variation
+fix GCSImage

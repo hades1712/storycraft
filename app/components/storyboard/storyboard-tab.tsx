@@ -2,13 +2,37 @@
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
-import { Grid, List, Loader2, Presentation, Video, ChevronLeft, ChevronRight, Plus, Minus, Image } from 'lucide-react'
+import { Grid, List, Loader2, Presentation, Video, ChevronLeft, ChevronRight, Plus, Minus, Image, ChevronDown } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { Scene, Scenario, ImagePrompt, VideoPrompt } from "../../types"
 import { SceneData } from './scene-data'
 import { GcsImage } from '../ui/gcs-image'
 import { VideoPlayer } from '../video/video-player'
+
+const VEO_MODEL_OPTIONS = [
+  { 
+    label: "Generate Videos with Veo 3.0 Fast + Audio", 
+    modelName: "veo-3.0-fast-generate-001",
+    generateAudio: true
+  },
+  { 
+    label: "Generate Videos with Veo 3.0 Fast", 
+    modelName: "veo-3.0-fast-generate-001",
+    generateAudio: false
+  },
+  { 
+    label: "Generate Videos with Veo 3.0 + Audio", 
+    modelName: "veo-3.0-generate-001",
+    generateAudio: true
+  },
+  { 
+    label: "Generate Videos with Veo 3.0", 
+    modelName: "veo-3.0-generate-001",
+    generateAudio: false
+  }
+];
 
 function ImagePromptDisplay({ imagePrompt }: { imagePrompt: ImagePrompt }) {
   return (
@@ -92,7 +116,7 @@ interface StoryboardTabProps {
   isVideoLoading: boolean
   generatingScenes: Set<number>
   errorMessage: string | null
-  onGenerateAllVideos: () => Promise<void>
+  onGenerateAllVideos: (model: string, generateAudio: boolean) => Promise<void>
   onUpdateScene: (index: number, updatedScene: Scene) => void
   onRegenerateImage: (index: number) => Promise<void>
   onGenerateVideo: (index: number) => Promise<void>
@@ -120,6 +144,12 @@ export function StoryboardTab({
   const [viewMode, setViewMode] = useState<ViewMode>('grid')
   const [displayMode, setDisplayMode] = useState<DisplayMode>('image')
   const [currentSlide, setCurrentSlide] = useState(0)
+  const [selectedModel, setSelectedModel] = useState(VEO_MODEL_OPTIONS[0])
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false)
+
+  const handleGenerateAllVideosClick = () => {
+    onGenerateAllVideos(selectedModel.modelName, selectedModel.generateAudio)
+  }
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
   const [activeTabs, setActiveTabs] = useState<{ [key: number]: string }>({})
@@ -497,23 +527,53 @@ export function StoryboardTab({
             <Video className="h-4 w-4 text-muted-foreground" />
           </div>
         </div>
-        <Button
-          onClick={onGenerateAllVideos}
-          disabled={isVideoLoading || scenes.length === 0 || generatingScenes.size > 0}
-          className="bg-primary text-primary-foreground hover:bg-primary/90"
-        >
-          {isVideoLoading ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Generating Videos...
-            </>
-          ) : (
-            <>
-              <Video className="mr-2 h-4 w-4" />
-              Generate Videos with Veo 3.0
-            </>
-          )}
-        </Button>
+        <div className="flex">
+          <Button
+            onClick={handleGenerateAllVideosClick}
+            disabled={isVideoLoading || scenes.length === 0 || generatingScenes.size > 0}
+            className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-r-none"
+          >
+            {isVideoLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Generating Videos...
+              </>
+            ) : (
+              <>
+                <Video className="mr-2 h-4 w-4" />
+                {selectedModel.label}
+              </>
+            )}
+          </Button>
+          <Popover open={isDropdownOpen} onOpenChange={setIsDropdownOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                className="px-2 border-l-0 rounded-l-none"
+                disabled={isVideoLoading || scenes.length === 0 || generatingScenes.size > 0}
+              >
+                <ChevronDown className="h-4 w-4" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-80 p-0" align="end">
+              <div className="py-1">
+                {VEO_MODEL_OPTIONS.map((option, index) => (
+                  <button
+                    key={index}
+                    className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 flex items-center"
+                    onClick={() => {
+                      setSelectedModel(option)
+                      setIsDropdownOpen(false)
+                    }}
+                  >
+                    <Video className="mr-2 h-4 w-4" />
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </PopoverContent>
+          </Popover>
+        </div>
       </div>
 
       {renderScenes()}

@@ -17,9 +17,9 @@ export async function generateContent(
             thinkingBudget: -1,
         },
         responseMimeType: 'application/json',
-    }): Promise<string | undefined> {
-
-    const model = 'gemini-2.5-flash';
+    },
+    model: string = 'gemini-2.5-flash'
+): Promise<string | undefined> {
     const response = await ai.models.generateContent({
         model,
         config,
