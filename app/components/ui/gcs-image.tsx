@@ -14,10 +14,13 @@ interface GcsImageProps {
   sizes?: string
 }
 
+const isDevelopment = process.env.NODE_ENV === 'development';
+
 export function GcsImage({ gcsUri, alt, className, fill = true, sizes }: GcsImageProps) {
   const { data: imageData, isLoading, error } = useQuery({
     queryKey: ['image', gcsUri],
     queryFn: async () => {
+      console.log('GcsImage query ' + gcsUri)
       if (!gcsUri) {
         return null
       }
@@ -34,7 +37,7 @@ export function GcsImage({ gcsUri, alt, className, fill = true, sizes }: GcsImag
       }
     },
     enabled: !!gcsUri,
-    staleTime: 60 * 1000 * 50, // 50 minutes
+    staleTime: isDevelopment ? 0 : 60 * 1000 * 50, // 50 minutes in production
   })
 
   const imageUrl = imageData?.url || null
