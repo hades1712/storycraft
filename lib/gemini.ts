@@ -20,6 +20,16 @@ export async function generateContent(
     },
     model: string = 'gemini-2.5-flash'
 ): Promise<string | undefined> {
+
+    const useSearchAndBrowser = false;
+    if (useSearchAndBrowser) {
+        config.tools = [
+            { googleSearch: {}, },
+            { urlContext: {}, }
+        ]
+        config.responseMimeType = 'text/plain'
+    }
+    
     const response = await ai.models.generateContent({
         model,
         config,
@@ -64,7 +74,7 @@ export async function generateImage(
             if (!response.candidates || response.candidates.length === 0) {
                 logger.warn("No candidates found in the response.");
                 // If no candidates, but no error, it might be a valid (empty) response, so break retry loop.
-                return { success: false, errorMessage: "No candidates found in the response."};
+                return { success: false, errorMessage: "No candidates found in the response." };
             }
 
             const firstCandidate = response.candidates[0];
@@ -76,11 +86,11 @@ export async function generateImage(
                     const extension = mimeType.split("/")[1] || "png";
                     const uuid = uuidv4()
                     imageGcsUri = await uploadImage(imageBuffer.toString('base64'), `gemini-${uuid}.png`)
-                    return { success: true, imageGcsUri: imageGcsUri!};
+                    return { success: true, imageGcsUri: imageGcsUri! };
                 }
             };
             // If we reach here, no inlineData was found but no error occurred, so break retry loop.
-            return { success: false, errorMessage: response.text};
+            return { success: false, errorMessage: response.text };
         } catch (error) {
             logger.error(error)
             if (attempt < maxRetries) {

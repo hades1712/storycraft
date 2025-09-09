@@ -35,7 +35,9 @@ export async function generateScenario(name: string, pitch: string, numScenes: n
 
     let scenario: Scenario
     try {
-      const parsedScenario = JSON.parse(text);
+      // remove markdown
+      const textWithoutMarkdown = text.replace(/```json/g, '').replace(/```/g, '')
+      const parsedScenario = JSON.parse(textWithoutMarkdown);
       logger.debug(parsedScenario)
 
       // Ensure the language is set correctly and add name, pitch, style, and aspect ratio
@@ -44,6 +46,7 @@ export async function generateScenario(name: string, pitch: string, numScenes: n
         name: name,
         pitch: pitch,
         style: style,
+        props: parsedScenario.props || [],
         aspectRatio: aspectRatio,
         language: {
           name: language.name,

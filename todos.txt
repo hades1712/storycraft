@@ -1,37 +1,35 @@
-props?
-9/16
-choose model
-fix GCSImage?
+# Done
+    * props?
+    * 9/16
+    * choose model
+    * fix GCSImage?
 
-assets > 3
+# On Hold:
+    * google_searc + url_context
 
-google_searc + url_context
+# Next:
+    * voice description
+    * fix image generation language Imagen4
+    * fix delete character/settings/props loader
+    * nano banana more than 3 reference images
+    * voiceover single quotes bug?
+    * upload style image
+    * Review Scene data:
+        * scene by scene model choice + params
+        * conversational edit images
+    * videos duration params
+    
 
-scene by scene model choice
-
-conversational edit images
-
-voice description
-
-fix image generation language Imagen4
-voiceover single quotes bug?
-
-
-Editor:
-refactor editor and data model
-logo text overlays
-captions https://www.angel1254.com/blog/posts/word-by-word-captions
-https://github.com/redotvideo/revideo 👍
-
-
-upload music
-fix delete character/settings/props loader
-character poses variation
-
-Posthog / Analytics
-Tests (Jest/Vitest + E2E Playwright/Cypress)
-
-
-
-
-download image full size
+# TODO:
+    * linter and prettier format
+    * Editor:
+        * shorten move clips
+        * refactor editor and data model
+        * logo text overlays
+        * captions https://www.angel1254.com/blog/posts/word-by-word-captions
+        * https://github.com/redotvideo/revideo 👍
+        * upload music
+    * character poses variation
+    * Posthog / Analytics
+    * Tests (Jest/Vitest + E2E Playwright/Cypress)
+    * Major Review and refactor

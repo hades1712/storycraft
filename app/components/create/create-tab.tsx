@@ -60,22 +60,22 @@ const ASPECT_RATIOS = [
 
 const MODEL_OPTIONS = [
   { 
-    label: "Generate Scenario with Gemini 2.5 Flash", 
+    label: "Scenario with Gemini 2.5 Flash", 
     modelName: "gemini-2.5-flash", 
     thinkingBudget: 0 
   },
   { 
-    label: "Generate Scenario with Gemini 2.5 Flash Thinking", 
+    label: "Scenario with Gemini 2.5 Flash 💡", 
     modelName: "gemini-2.5-flash", 
     thinkingBudget: -1 
   },
   { 
-    label: "Generate Scenario with Gemini 2.5 Pro", 
+    label: "Scenario with Gemini 2.5 Pro", 
     modelName: "gemini-2.5-pro", 
     thinkingBudget: 0 
   },
   { 
-    label: "Generate Scenario with Gemini 2.5 Pro Thinking", 
+    label: "Scenario with Gemini 2.5 Pro 💡", 
     modelName: "gemini-2.5-pro", 
     thinkingBudget: -1 
   }
@@ -150,7 +150,7 @@ export function CreateTab({
             <PopoverTrigger asChild>
               <Button
                 variant="outline"
-                className="px-2 border-l-0 rounded-l-none"
+                className="px-2 border-l-0 rounded-l-none bg-primary text-primary-foreground hover:bg-primary/90"
                 disabled={isLoading || pitch.trim() === '' || name.trim() === ''}
               >
                 <ChevronDown className="h-4 w-4" />
@@ -270,12 +270,12 @@ export function CreateTab({
             </div>
           </div>
           <div className="space-y-2">
-            <StyleSelector styles={styles} onSelect={setStyle} />
-          </div>
-          <div className="flex items-center space-x-2">
             <label htmlFor="style" className="text-sm font-medium">
               Style:
             </label>
+            <StyleSelector styles={styles} onSelect={setStyle} />
+          </div>
+          <div className="flex items-center space-x-2">
             <Input
               id="style"
               value={style}

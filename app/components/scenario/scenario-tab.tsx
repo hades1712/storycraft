@@ -476,7 +476,7 @@ export function ScenarioTab({ scenario, onGenerateStoryBoard, isLoading, onScena
                             ) : (
                                 <>
                                     <LayoutGrid className="mr-2 h-4 w-4" />
-                                    Generate Storyboard with 🍌
+                                    Storyboard with 🍌
                                 </>
                             )}
                         </Button>

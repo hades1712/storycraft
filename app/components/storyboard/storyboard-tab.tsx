@@ -13,22 +13,22 @@ import { VideoPlayer } from '../video/video-player'
 
 const VEO_MODEL_OPTIONS = [
   { 
-    label: "Generate Videos with Veo 3.0 Fast + Audio", 
+    label: "Videos with Veo 3.0 Fast 🔈", 
     modelName: "veo-3.0-fast-generate-001",
     generateAudio: true
   },
   { 
-    label: "Generate Videos with Veo 3.0 Fast", 
+    label: "Videos with Veo 3.0 Fast", 
     modelName: "veo-3.0-fast-generate-001",
     generateAudio: false
   },
   { 
-    label: "Generate Videos with Veo 3.0 + Audio", 
+    label: "Videos with Veo 3.0 🔈", 
     modelName: "veo-3.0-generate-001",
     generateAudio: true
   },
   { 
-    label: "Generate Videos with Veo 3.0", 
+    label: "Videos with Veo 3.0", 
     modelName: "veo-3.0-generate-001",
     generateAudio: false
   }
@@ -549,7 +549,7 @@ export function StoryboardTab({
             <PopoverTrigger asChild>
               <Button
                 variant="outline"
-                className="px-2 border-l-0 rounded-l-none"
+                className="px-2 border-l-0 rounded-l-none bg-primary text-primary-foreground hover:bg-primary/90"
                 disabled={isVideoLoading || scenes.length === 0 || generatingScenes.size > 0}
               >
                 <ChevronDown className="h-4 w-4" />
