@@ -5,15 +5,14 @@
     * fix GCSImage?
     * voice description
     * clip duration
+    * fix delete character/settings/props loader
 
 # On Hold:
     * google_searc + url_context
 
 # Next:
-    * fix delete character/settings/props loader
-    * fix image generation language Imagen4
     * nano banana more than 3 reference images
-    * voiceover single quotes bug?
+    * fix image generation language Imagen4
     * upload style image
     * Review Scene data:
         * scene by scene model choice + params

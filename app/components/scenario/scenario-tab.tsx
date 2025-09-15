@@ -1,7 +1,7 @@
 'use client'
 
 import { Button } from "@/components/ui/button"
-import { LayoutGrid, Loader2, Pencil, Upload, Plus, X } from "lucide-react";
+import { LayoutGrid, Loader2, Pencil, Upload, Plus, X, RefreshCw } from "lucide-react";
 import { Scenario } from "../../types";
 import { useState, useRef, useEffect } from "react";
 import { Textarea } from "@/components/ui/textarea";
@@ -48,6 +48,22 @@ export function ScenarioTab({ scenario, onGenerateStoryBoard, isLoading, onScena
     const [isEditingMusic, setIsEditingMusic] = useState(false);
     const [editedMusic, setEditedMusic] = useState('');
     const [isMusicHovering, setIsMusicHovering] = useState(false);
+    const [localGeneratingCharacters, setLocalGeneratingCharacters] = useState<Set<number>>(new Set());
+    const [localGeneratingProps, setLocalGeneratingProps] = useState<Set<number>>(new Set());
+    
+    // Helper functions to check if an item is in any loading state
+    const isCharacterLoading = (index: number) => {
+        return generatingCharacterImages?.has(index) || localGeneratingCharacters.has(index);
+    };
+    
+    const isSettingLoading = (index: number) => {
+        return generatingSettingImages?.has(index) || localGeneratingSettings.has(index);
+    };
+    
+    const isPropLoading = (index: number) => {
+        return generatingPropImages?.has(index) || localGeneratingProps.has(index);
+    };
+    
     const scenarioRef = useRef<HTMLDivElement>(null);
     const characterEditingRefs = useRef<(HTMLDivElement | null)[]>([]);
     const characterFileInputRefs = useRef<(HTMLInputElement | null)[]>([]);
@@ -282,11 +298,6 @@ export function ScenarioTab({ scenario, onGenerateStoryBoard, isLoading, onScena
                 characters: updatedCharacters
             };
             onScenarioUpdate(updatedScenario);
-
-            // Optionally regenerate image with the updated name and description
-            if (onRegenerateCharacterImage) {
-                await onRegenerateCharacterImage(index, updatedName, updatedDescription, updatedVoice);
-            }
         }
         setEditingCharacterIndex(null);
     };
@@ -308,11 +319,6 @@ export function ScenarioTab({ scenario, onGenerateStoryBoard, isLoading, onScena
                 settings: updatedSettings
             };
             onScenarioUpdate(updatedScenario);
-
-            // Optionally regenerate image with the updated name and description
-            if (onRegenerateSettingImage) {
-                await onRegenerateSettingImage(index, updatedName, updatedDescription);
-            }
         }
         setEditingSettingIndex(null);
     };
@@ -334,11 +340,6 @@ export function ScenarioTab({ scenario, onGenerateStoryBoard, isLoading, onScena
                 props: updatedProps
             };
             onScenarioUpdate(updatedScenario);
-
-            // Optionally regenerate image with the updated name and description
-            if (onRegeneratePropImage) {
-                await onRegeneratePropImage(index, updatedName, updatedDescription);
-            }
         }
         setEditingPropIndex(null);
     };
@@ -375,21 +376,32 @@ export function ScenarioTab({ scenario, onGenerateStoryBoard, isLoading, onScena
 
     const handleRemoveCharacter = async (index: number) => {
         if (scenario && onScenarioUpdate) {
-            const newScenario = await deleteCharacterFromScenario(scenario.scenario, scenario.characters[index].name, scenario.characters[index].description);
-            const updatedCharacters = scenario.characters.filter((_, i) => i !== index);
-            const updatedScenario = {
-                ...scenario,
-                characters: updatedCharacters,
-                scenario: newScenario.updatedScenario
-            };
-            onScenarioUpdate(updatedScenario);
+            setLocalGeneratingCharacters(prev => new Set([...prev, index]));
+            try {
+                const newScenario = await deleteCharacterFromScenario(scenario.scenario, scenario.characters[index].name, scenario.characters[index].description);
+                const updatedCharacters = scenario.characters.filter((_, i) => i !== index);
+                const updatedScenario = {
+                    ...scenario,
+                    characters: updatedCharacters,
+                    scenario: newScenario.updatedScenario
+                };
+                onScenarioUpdate(updatedScenario);
 
-            // Clear editing state if we're removing the character being edited
-            if (editingCharacterIndex === index) {
-                setEditingCharacterIndex(null);
-            } else if (editingCharacterIndex !== null && editingCharacterIndex > index) {
-                // Adjust editing index if removing a character before the one being edited
-                setEditingCharacterIndex(editingCharacterIndex - 1);
+                // Clear editing state if we're removing the character being edited
+                if (editingCharacterIndex === index) {
+                    setEditingCharacterIndex(null);
+                } else if (editingCharacterIndex !== null && editingCharacterIndex > index) {
+                    // Adjust editing index if removing a character before the one being edited
+                    setEditingCharacterIndex(editingCharacterIndex - 1);
+                }
+            } catch (error) {
+                console.error('Error deleting character:', error);
+            } finally {
+                setLocalGeneratingCharacters(prev => {
+                    const newSet = new Set(prev);
+                    newSet.delete(index);
+                    return newSet;
+                });
             }
         }
     };
@@ -414,21 +426,32 @@ export function ScenarioTab({ scenario, onGenerateStoryBoard, isLoading, onScena
 
     const handleRemoveSetting = async (index: number) => {
         if (scenario && onScenarioUpdate) {
-            const newScenario = await deleteSettingFromScenario(scenario.scenario, scenario.settings[index].name, scenario.settings[index].description);
-            const updatedSettings = scenario.settings.filter((_, i) => i !== index);
-            const updatedScenario = {
-                ...scenario,
-                settings: updatedSettings,
-                scenario: newScenario.updatedScenario
-            };
-            onScenarioUpdate(updatedScenario);
+            setLocalGeneratingSettings(prev => new Set([...prev, index]));
+            try {
+                const newScenario = await deleteSettingFromScenario(scenario.scenario, scenario.settings[index].name, scenario.settings[index].description);
+                const updatedSettings = scenario.settings.filter((_, i) => i !== index);
+                const updatedScenario = {
+                    ...scenario,
+                    settings: updatedSettings,
+                    scenario: newScenario.updatedScenario
+                };
+                onScenarioUpdate(updatedScenario);
 
-            // Clear editing state if we're removing the setting being edited
-            if (editingSettingIndex === index) {
-                setEditingSettingIndex(null);
-            } else if (editingSettingIndex !== null && editingSettingIndex > index) {
-                // Adjust editing index if removing a setting before the one being edited
-                setEditingSettingIndex(editingSettingIndex - 1);
+                // Clear editing state if we're removing the setting being edited
+                if (editingSettingIndex === index) {
+                    setEditingSettingIndex(null);
+                } else if (editingSettingIndex !== null && editingSettingIndex > index) {
+                    // Adjust editing index if removing a setting before the one being edited
+                    setEditingSettingIndex(editingSettingIndex - 1);
+                }
+            } catch (error) {
+                console.error('Error deleting setting:', error);
+            } finally {
+                setLocalGeneratingSettings(prev => {
+                    const newSet = new Set(prev);
+                    newSet.delete(index);
+                    return newSet;
+                });
             }
         }
     };
@@ -453,21 +476,32 @@ export function ScenarioTab({ scenario, onGenerateStoryBoard, isLoading, onScena
 
     const handleRemoveProp = async (index: number) => {
         if (scenario && onScenarioUpdate) {
-            const newScenario = await deletePropFromScenario(scenario.scenario, scenario.props[index].name, scenario.props[index].description);
-            const updatedProps = scenario.props.filter((_, i) => i !== index);
-            const updatedScenario = {
-                ...scenario,
-                props: updatedProps,
-                scenario: newScenario.updatedScenario
-            };
-            onScenarioUpdate(updatedScenario);
+            setLocalGeneratingProps(prev => new Set([...prev, index]));
+            try {
+                const newScenario = await deletePropFromScenario(scenario.scenario, scenario.props[index].name, scenario.props[index].description);
+                const updatedProps = scenario.props.filter((_, i) => i !== index);
+                const updatedScenario = {
+                    ...scenario,
+                    props: updatedProps,
+                    scenario: newScenario.updatedScenario
+                };
+                onScenarioUpdate(updatedScenario);
 
-            // Clear editing state if we're removing the prop being edited
-            if (editingPropIndex === index) {
-                setEditingPropIndex(null);
-            } else if (editingPropIndex !== null && editingPropIndex > index) {
-                // Adjust editing index if removing a prop before the one being edited
-                setEditingPropIndex(editingPropIndex - 1);
+                // Clear editing state if we're removing the prop being edited
+                if (editingPropIndex === index) {
+                    setEditingPropIndex(null);
+                } else if (editingPropIndex !== null && editingPropIndex > index) {
+                    // Adjust editing index if removing a prop before the one being edited
+                    setEditingPropIndex(editingPropIndex - 1);
+                }
+            } catch (error) {
+                console.error('Error deleting prop:', error);
+            } finally {
+                setLocalGeneratingProps(prev => {
+                    const newSet = new Set(prev);
+                    newSet.delete(index);
+                    return newSet;
+                });
             }
         }
     };
@@ -540,7 +574,7 @@ export function ScenarioTab({ scenario, onGenerateStoryBoard, isLoading, onScena
                         {scenario.characters.map((character, index) => (
                             <div key={index} className="flex gap-4 items-start">
                                 <div className="flex-shrink-0 w-[200px] h-[200px] relative group">
-                                    {generatingCharacterImages?.has(index) && (
+                                    {isCharacterLoading(index) && (
                                         <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-10 rounded-lg">
                                             <Loader2 className="h-8 w-8 text-white animate-spin" />
                                         </div>
@@ -551,13 +585,25 @@ export function ScenarioTab({ scenario, onGenerateStoryBoard, isLoading, onScena
                                         className="object-cover rounded-lg shadow-md"
                                         sizes="200px"
                                     />
+                                    <div className="absolute top-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <Button
+                                            variant="secondary"
+                                            size="icon"
+                                            className="bg-black/50 hover:bg-blue-500 hover:text-white"
+                                            onClick={() => onRegenerateCharacterImage?.(index, character.name, character.description, character.voice || '')}
+                                            disabled={isCharacterLoading(index)}
+                                        >
+                                            <RefreshCw className="h-4 w-4" />
+                                            <span className="sr-only">Regenerate character image</span>
+                                        </Button>
+                                    </div>
                                     <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
                                         <Button
                                             variant="secondary"
                                             size="icon"
                                             className="bg-black/50 hover:bg-green-500 hover:text-white"
                                             onClick={() => handleCharacterUploadClick(index)}
-                                            disabled={generatingCharacterImages?.has(index)}
+                                            disabled={isCharacterLoading(index)}
                                         >
                                             <Upload className="h-4 w-4" />
                                             <span className="sr-only">Upload character image</span>
@@ -567,7 +613,7 @@ export function ScenarioTab({ scenario, onGenerateStoryBoard, isLoading, onScena
                                             size="icon"
                                             className="bg-black/50 hover:bg-red-500 hover:text-white"
                                             onClick={() => handleRemoveCharacter(index)}
-                                            disabled={generatingCharacterImages?.has(index)}
+                                            disabled={isCharacterLoading(index)}
                                         >
                                             <X className="h-4 w-4" />
                                             <span className="sr-only">Remove character</span>
@@ -661,7 +707,7 @@ export function ScenarioTab({ scenario, onGenerateStoryBoard, isLoading, onScena
                         {scenario.props?.map((prop, index) => (
                             <div key={index} className="flex gap-4 items-start">
                                 <div className="flex-shrink-0 w-[200px] h-[200px] relative group">
-                                    {generatingPropImages?.has(index) && (
+                                    {isPropLoading(index) && (
                                         <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-10 rounded-lg">
                                             <Loader2 className="h-8 w-8 text-white animate-spin" />
                                         </div>
@@ -672,13 +718,25 @@ export function ScenarioTab({ scenario, onGenerateStoryBoard, isLoading, onScena
                                         className="object-cover rounded-lg shadow-md"
                                         sizes="200px"
                                     />
+                                    <div className="absolute top-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <Button
+                                            variant="secondary"
+                                            size="icon"
+                                            className="bg-black/50 hover:bg-blue-500 hover:text-white"
+                                            onClick={() => onRegeneratePropImage?.(index, prop.name, prop.description)}
+                                            disabled={isPropLoading(index)}
+                                        >
+                                            <RefreshCw className="h-4 w-4" />
+                                            <span className="sr-only">Regenerate prop image</span>
+                                        </Button>
+                                    </div>
                                     <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
                                         <Button
                                             variant="secondary"
                                             size="icon"
                                             className="bg-black/50 hover:bg-green-500 hover:text-white"
                                             onClick={() => handlePropUploadClick(index)}
-                                            disabled={generatingPropImages?.has(index)}
+                                            disabled={isPropLoading(index)}
                                         >
                                             <Upload className="h-4 w-4" />
                                             <span className="sr-only">Upload prop image</span>
@@ -688,7 +746,7 @@ export function ScenarioTab({ scenario, onGenerateStoryBoard, isLoading, onScena
                                             size="icon"
                                             className="bg-black/50 hover:bg-red-500 hover:text-white"
                                             onClick={() => handleRemoveProp(index)}
-                                            disabled={generatingPropImages?.has(index)}
+                                            disabled={isPropLoading(index)}
                                         >
                                             <X className="h-4 w-4" />
                                             <span className="sr-only">Remove prop</span>
@@ -771,7 +829,7 @@ export function ScenarioTab({ scenario, onGenerateStoryBoard, isLoading, onScena
                         {scenario.settings.map((setting, index) => (
                             <div key={index} className="flex gap-4 items-start">
                                 <div className="flex-shrink-0 w-[200px] h-[200px] relative group">
-                                    {generatingSettingImages?.has(index) && (
+                                    {isSettingLoading(index) && (
                                         <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-10 rounded-lg">
                                             <Loader2 className="h-8 w-8 text-white animate-spin" />
                                         </div>
@@ -782,13 +840,25 @@ export function ScenarioTab({ scenario, onGenerateStoryBoard, isLoading, onScena
                                         className="object-contain rounded-lg shadow-md"
                                         sizes="200px"
                                     />
+                                    <div className="absolute top-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <Button
+                                            variant="secondary"
+                                            size="icon"
+                                            className="bg-black/50 hover:bg-blue-500 hover:text-white"
+                                            onClick={() => onRegenerateSettingImage?.(index, setting.name, setting.description)}
+                                            disabled={isSettingLoading(index)}
+                                        >
+                                            <RefreshCw className="h-4 w-4" />
+                                            <span className="sr-only">Regenerate setting image</span>
+                                        </Button>
+                                    </div>
                                     <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
                                         <Button
                                             variant="secondary"
                                             size="icon"
                                             className="bg-black/50 hover:bg-green-500 hover:text-white"
                                             onClick={() => handleSettingUploadClick(index)}
-                                            disabled={generatingSettingImages?.has(index)}
+                                            disabled={isSettingLoading(index)}
                                         >
                                             <Upload className="h-4 w-4" />
                                             <span className="sr-only">Upload setting image</span>
@@ -798,7 +868,7 @@ export function ScenarioTab({ scenario, onGenerateStoryBoard, isLoading, onScena
                                             size="icon"
                                             className="bg-black/50 hover:bg-red-500 hover:text-white"
                                             onClick={() => handleRemoveSetting(index)}
-                                            disabled={generatingSettingImages?.has(index)}
+                                            disabled={isSettingLoading(index)}
                                         >
                                             <X className="h-4 w-4" />
                                             <span className="sr-only">Remove setting</span>
