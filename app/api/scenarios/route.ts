@@ -29,6 +29,7 @@ export async function POST(request: NextRequest) {
       pitch: scenario.pitch || '',
       scenario: scenario.scenario || '',
       aspectRatio: scenario.aspectRatio || '16:9',
+      durationSeconds: scenario.durationSeconds || 8,
       style: scenario.style || '',
       genre: scenario.genre || '',
       mood: scenario.mood || '',

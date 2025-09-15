@@ -147,7 +147,8 @@ async function generateCharacterImage(description: string, style: string): Promi
 
     const imageResult = await generateImageRest(
         yaml.dump(orderedPrompt, { indent: 2, lineWidth: -1 }),
-        "1:1"
+        "1:1",
+        true
     );
 
     if (imageResult.predictions[0].raiFilteredReason) {
@@ -159,7 +160,7 @@ async function generateCharacterImage(description: string, style: string): Promi
     return imageResult.predictions[0].gcsUri;
 }
 
-async function generateSettingImage(description: string, style: string): Promise<string> {
+async function generateSettingImage(description: string, style: string, aspectRatio: string = "16:9"): Promise<string> {
     const orderedPrompt = {
         style,
         shot_type: "Wide Shot",
@@ -167,7 +168,8 @@ async function generateSettingImage(description: string, style: string): Promise
     };
     const imageResult = await generateImageRest(
         yaml.dump(orderedPrompt, { indent: 2, lineWidth: -1 }),
-        "16:9"
+        aspectRatio,
+        true
     );
 
     if (imageResult.predictions[0].raiFilteredReason) {
@@ -187,7 +189,8 @@ async function generatePropImage(description: string, style: string): Promise<st
     };
     const imageResult = await generateImageRest(
         yaml.dump(orderedPrompt, { indent: 2, lineWidth: -1 }),
-        "16:9"
+        "1:1",
+        true
     );
 
     if (imageResult.predictions[0].raiFilteredReason) {
@@ -392,11 +395,12 @@ export async function regenerateSettingAndScenarioFromText(
     oldSettingName: string,
     newSettingName: string,
     newSettingDescription: string,
-    style: string
+    style: string,
+    aspectRatio: string = "16:9"
 ): Promise<ScenarioUpdateResult> {
     try {
         // Generate new character image
-        const newImageGcsUri = await generateSettingImage(newSettingDescription, style);
+        const newImageGcsUri = await generateSettingImage(newSettingDescription, style, aspectRatio);
 
         // Update scenario text
         const updatedScenario = await updateScenarioText(

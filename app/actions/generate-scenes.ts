@@ -75,7 +75,7 @@ export async function generateScenario(name: string, pitch: string, numScenes: n
             description: character.description,
             // prohibited_elements: "watermark, text overlay, warped face, floating limbs, distorted hands, blurry edges"
           };
-          const resultJson = await generateImageRest(yaml.dump(orderedPrompt, { indent: 2, lineWidth: -1 }), "1:1");
+          const resultJson = await generateImageRest(yaml.dump(orderedPrompt, { indent: 2, lineWidth: -1 }), "1:1", true);
           if (resultJson.predictions[0].raiFilteredReason) {
             throw new Error(getRAIUserMessage(getRAIUserMessage(resultJson.predictions[0].raiFilteredReason)))
           } else {
@@ -98,7 +98,7 @@ export async function generateScenario(name: string, pitch: string, numScenes: n
             description: setting.description,
             //prohibited_elements: "people, characters, watermark, text overlay, warped face, floating limbs, distorted hands, blurry edges"
           };
-          const resultJson = await generateImageRest(yaml.dump(orderedPrompt, { indent: 2, lineWidth: -1 }), aspectRatio);
+          const resultJson = await generateImageRest(yaml.dump(orderedPrompt, { indent: 2, lineWidth: -1 }), aspectRatio, true);
           if (resultJson.predictions[0].raiFilteredReason) {
             throw new Error(getRAIUserMessage(resultJson.predictions[0].raiFilteredReason))
           } else {
@@ -122,7 +122,7 @@ export async function generateScenario(name: string, pitch: string, numScenes: n
             description: prop.description,
             //prohibited_elements: "people, characters, watermark, text overlay, warped face, floating limbs, distorted hands, blurry edges"
           };
-          const resultJson = await generateImageRest(yaml.dump(orderedPrompt, { indent: 2, lineWidth: -1 }), "1:1");
+          const resultJson = await generateImageRest(yaml.dump(orderedPrompt, { indent: 2, lineWidth: -1 }), "1:1", true);
           if (resultJson.predictions[0].raiFilteredReason) {
             throw new Error(getRAIUserMessage(resultJson.predictions[0].raiFilteredReason))
           } else {

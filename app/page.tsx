@@ -205,7 +205,7 @@ export default function Home() {
     setErrorMessage(null)
     try {
       // Regenerate setting image using the updated description
-      const { updatedScenario: newScenarioText, newImageGcsUri } = await regenerateSettingAndScenarioFromText(scenario.scenario, scenario.settings[settingIndex].name, name, description, style)
+      const { updatedScenario: newScenarioText, newImageGcsUri } = await regenerateSettingAndScenarioFromText(scenario.scenario, scenario.settings[settingIndex].name, name, description, style, scenario.aspectRatio)
 
 
       // Update the setting with the new image AND the updated description
@@ -859,6 +859,7 @@ export default function Home() {
     setName(selectedScenario.name || '');
     setPitch(selectedScenario.pitch || '');
     setStyle(selectedScenario.style || 'Photographic');
+    setAspectRatio(selectedScenario.aspectRatio || '16:9');
     setLanguage(selectedScenario.language || DEFAULT_LANGUAGE);
     setNumScenes(selectedScenario.scenes?.length || 6);
     setDurationSeconds(validateDuration(selectedScenario.durationSeconds || 8));
