@@ -6,12 +6,12 @@
     * voice description
     * clip duration
     * fix delete character/settings/props loader
+    * nano banana more than 3 reference images
 
 # On Hold:
     * google_searc + url_context
 
 # Next:
-    * nano banana more than 3 reference images
     * fix image generation language Imagen4
     * upload style image
     * Review Scene data:

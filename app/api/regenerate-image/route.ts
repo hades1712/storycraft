@@ -7,6 +7,7 @@ import { createPartFromUri, createPartFromText } from '@google/genai';
 import { generateImage } from '@/lib/gemini'
 import logger from '@/app/logger';
 import { getRAIUserMessage } from '@/lib/rai'
+import { createCollage } from '@/app/actions/resize-image'
 
 //export const runtime = 'nodejs';
 
@@ -41,18 +42,34 @@ export async function POST(request: NextRequest) {
       };
       const promptString = yaml.dump(orderedPrompt, { indent: 2, lineWidth: -1 })
       logger.debug(`Prompt string:\n${promptString}`)
-      const characterParts = presentCharacters.flatMap(character =>
-        [createPartFromText(character.name), createPartFromUri(character.imageGcsUri!, 'image/png')]
-      )
-      const propsParts = props.flatMap(prop =>
-        [createPartFromText(prop.name), createPartFromUri(prop.imageGcsUri!, 'image/png')]
-      )
-      const settingsParts = settings.flatMap(setting =>
-        [createPartFromText(setting.name), createPartFromUri(setting.imageGcsUri!, 'image/png')]
-      )
-      const result = await generateImage(
-        characterParts.concat(propsParts).concat(settingsParts).concat([createPartFromText(promptString)])
-      )
+
+      let result;
+      if (presentCharacters.length + props.length + settings.length <= 3) {
+        const characterParts = presentCharacters.flatMap(character =>
+          [createPartFromText(character.name), createPartFromUri(character.imageGcsUri!, 'image/png')]
+        )
+        const propsParts = props.flatMap(prop =>
+          [createPartFromText(prop.name), createPartFromUri(prop.imageGcsUri!, 'image/png')]
+        )
+        const settingsParts = settings.flatMap(setting =>
+          [createPartFromText(setting.name), createPartFromUri(setting.imageGcsUri!, 'image/png')]
+        )
+        result = await generateImage(
+          characterParts.concat(propsParts).concat(settingsParts).concat([createPartFromText(promptString)])
+        )
+      } else {
+        const collageUri = await createCollage(
+          presentCharacters,
+          props,
+          scenario.aspectRatio
+        );
+        const settingsParts = settings.flatMap(setting =>
+          [createPartFromText(setting.name), createPartFromUri(setting.imageGcsUri!, 'image/png')]
+        )
+        result = await generateImage(
+          [createPartFromUri(collageUri, 'image/png')].concat(settingsParts).concat([createPartFromText(promptString)])
+        )
+      }
       return NextResponse.json(result);
     } else {
       // Convert structured prompt to string if needed

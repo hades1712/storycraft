@@ -11,6 +11,7 @@ import { getRAIUserMessage } from '@/lib/rai'
 
 import { Scenario, Language } from "../types"
 import logger from '../logger';
+import { createCollage } from './resize-image';
 
 export async function generateScenario(name: string, pitch: string, numScenes: number, style: string, aspectRatio: string, durationSeconds: number, language: Language, modelName: string = 'gemini-2.5-flash', thinkingBudget: number = 0): Promise<Scenario> {
   try {
@@ -356,18 +357,33 @@ export async function generateStoryboard(scenario: Scenario, numScenes: number, 
             },
           };
           const prompt = yaml.dump(orderedPrompt, { indent: 2, lineWidth: -1 })
-          const characterParts = presentCharacters.flatMap(character =>
-            [createPartFromText(character.name), createPartFromUri(character.imageGcsUri!, 'image/png')]
-          )
-          const propsParts = props.flatMap(prop =>
-            [createPartFromText(prop.name), createPartFromUri(prop.imageGcsUri!, 'image/png')]
-          )
-          const settingsParts = settings.flatMap(setting =>
-            [createPartFromText(setting.name), createPartFromUri(setting.imageGcsUri!, 'image/png')]
-          )
-          const result = await generateImage(
-            characterParts.concat(propsParts).concat(settingsParts).concat([createPartFromText(prompt)])
-          )
+          let result;
+          if (presentCharacters.length + props.length + settings.length <= 3) {
+            const characterParts = presentCharacters.flatMap(character =>
+              [createPartFromText(character.name), createPartFromUri(character.imageGcsUri!, 'image/png')]
+            )
+            const propsParts = props.flatMap(prop =>
+              [createPartFromText(prop.name), createPartFromUri(prop.imageGcsUri!, 'image/png')]
+            )
+            const settingsParts = settings.flatMap(setting =>
+              [createPartFromText(setting.name), createPartFromUri(setting.imageGcsUri!, 'image/png')]
+            )
+            result = await generateImage(
+              characterParts.concat(propsParts).concat(settingsParts).concat([createPartFromText(prompt)])
+            )
+          } else {
+            const collageUri = await createCollage(
+              presentCharacters,
+              props,
+              scenario.aspectRatio
+            );
+            const settingsParts = settings.flatMap(setting =>
+              [createPartFromText(setting.name), createPartFromUri(setting.imageGcsUri!, 'image/png')]
+            )
+            result = await generateImage(
+              [createPartFromUri(collageUri, 'image/png')].concat(settingsParts).concat([createPartFromText(prompt)])
+            )
+          }
           if (result.success) {
             return { ...scene, imageGcsUri: result.imageGcsUri };
           } else {
