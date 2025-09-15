@@ -152,7 +152,7 @@ export default function Home() {
     }
   }
 
-  const handleRegenerateCharacterImage = async (characterIndex: number, name: string, description: string) => {
+  const handleRegenerateCharacterImage = async (characterIndex: number, name: string, description: string, voice: string) => {
     if (!scenario) return;
 
     setGeneratingCharacterImages(prev => new Set([...prev, characterIndex]));
@@ -168,6 +168,7 @@ export default function Home() {
         ...updatedCharacters[characterIndex],
         name: name, // Preserve the updated name
         description: description, // Preserve the updated description
+        voice: voice,
         imageGcsUri: newImageGcsUri
       };
 
@@ -304,7 +305,7 @@ export default function Home() {
           const response = await fetch('/api/videos', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ scenes: [scene], language: scenario?.language, aspectRatio: scenario?.aspectRatio, model, generateAudio }),
+            body: JSON.stringify({ scenes: [scene], scenario: scenario, language: scenario?.language, aspectRatio: scenario?.aspectRatio, model, generateAudio }),
           });
 
           const { success, videoUrls, error } = await response.json();
@@ -424,7 +425,7 @@ export default function Home() {
       const response = await fetch('/api/videos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ scenes: [scene], language: scenario?.language, aspectRatio: scenario?.aspectRatio }),
+        body: JSON.stringify({ scenes: [scene], scenario: scenario, language: scenario?.language, aspectRatio: scenario?.aspectRatio }),
       });
 
       const { success, videoUrls, error } = await response.json();
@@ -700,6 +701,7 @@ export default function Home() {
         scenario.scenario,
         character.name,
         character.description,
+        character.voice || '',
         resizedImageGcsUri,
         scenario.characters,
         style
@@ -715,6 +717,7 @@ export default function Home() {
           updatedCharacters[characterIndex] = {
             ...updatedCharacters[characterIndex],
             description: result.updatedCharacter.description,
+            voice: result.updatedCharacter.voice,
             name: result.updatedCharacter.name,
             imageGcsUri: result.newImageGcsUri
           };

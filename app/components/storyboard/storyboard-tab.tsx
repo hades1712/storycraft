@@ -147,6 +147,9 @@ export function StoryboardTab({
   const [selectedModel, setSelectedModel] = useState(VEO_MODEL_OPTIONS[0])
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
 
+
+  console.log(JSON.stringify(scenario, null, 2))
+
   const handleGenerateAllVideosClick = () => {
     onGenerateAllVideos(selectedModel.modelName, selectedModel.generateAudio)
   }

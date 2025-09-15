@@ -175,7 +175,7 @@ export function EditSceneModal({ isOpen, onClose, scene, sceneNumber, scenario, 
       ...prev,
       videoPrompt: {
         ...prev.videoPrompt,
-        Dialogue: [...prev.videoPrompt.Dialogue, { speaker: '', line: '' }]
+        Dialogue: [...prev.videoPrompt.Dialogue, { name: '', speaker: '', line: '' }]
       }
     }))
   }

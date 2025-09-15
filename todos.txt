@@ -3,12 +3,13 @@
     * 9/16
     * choose model
     * fix GCSImage?
+    * voice description
 
 # On Hold:
     * google_searc + url_context
 
 # Next:
-    * voice description
+    * clip duration
     * fix image generation language Imagen4
     * fix delete character/settings/props loader
     * nano banana more than 3 reference images

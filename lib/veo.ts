@@ -127,6 +127,7 @@ export async function generateSceneVideo(prompt: string, imageGcsUri: string, as
               sampleCount: 1,
               aspectRatio: aspectRatio,
               generateAudio: generateAudio,
+              durationSeconds: 4,
             },
           }),
         }

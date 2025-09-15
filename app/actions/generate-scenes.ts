@@ -271,6 +271,10 @@ export async function generateStoryboard(scenario: Scenario, numScenes: number, 
                         items: {
                           type: Type.OBJECT,
                           properties: {
+                            'name': {
+                              type: Type.STRING,
+                              nullable: false,
+                            },
                             'speaker': {
                               type: Type.STRING,
                               nullable: false,
@@ -280,7 +284,7 @@ export async function generateStoryboard(scenario: Scenario, numScenes: number, 
                               nullable: false,
                             }
                           },
-                          required: ['speaker', 'line'],
+                          required: ['name', 'speaker', 'line'],
                         }
                       }
                     },

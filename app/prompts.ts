@@ -62,6 +62,7 @@ Here's an example of how your output should be structured:
  "characters": [
   {
     "name": "[character 1 name]", 
+    "voice" "[character's voice description. One sentence.]
     "description": [
       "character 1 description in ${language.name}",
       "Be hyper-specific and affirmative and short, one sentence max. Include age, gender, ethnicity, specific facial features if any, hair style and color, facial hair or absence of it for male, skin details and exact clothing, including textures and accessories.",
@@ -70,6 +71,7 @@ Here's an example of how your output should be structured:
   },
   {
     "name": "[character 2 name]", 
+    "voice" "[character's voice description. One sentence.]
     "description": [
       "character 2 description in ${language.name}",
       "Be hyper-specific and affirmative and short, one sentence max. Include age, gender, ethnicity, specific facial features if any, hair style and color, facial hair or absence of it for male, skin details and exact clothing, including textures and accessories.",
@@ -123,7 +125,9 @@ ${scenario.scenario}
 </scenario>
 
 <characters>
-${scenario.characters.map(character => `${character.name}\n${character.description}`).join('\n\n\n')}
+${scenario.characters.map(character => `Name: ${character.name}
+  Description: ${character.description}
+  Voice Description: ${character.voice}`).join('\n\n\n')}
 </characters>
 
 <props>
@@ -151,6 +155,7 @@ ${scenario.mood}
   "Ambiance_Audio": "Diegetic Sound Only. This is crucial. Describe only the sounds that exist within the world of the scene. Do not mention music or narration, as those are post-production layers for different models. Be specific.",
   "Dialogue": [
     {
+      "name": "speaker name, only the name, choices are [${scenario.characters?.map(character => `${character.name}`).join(',')}]",
       "speaker": "Assign lines using physical descriptions, not names, for maximum clarity (e.g., 'The man in the blue shirt', 'The woman with red hair')",
       "line": "The actual dialogue spoken"
     }
@@ -231,6 +236,7 @@ Here's an example of how your output should be structured:
     "Ambiance_Audio": "ambient sounds",
     "Dialogue": [
       {
+        "name": "speaker name",
         "speaker": "speaker description",
         "line": "dialogue line"
       }

@@ -16,6 +16,7 @@ export interface VideoPrompt {
   Camera_Motion: string;
   Ambiance_Audio: string;
   Dialogue: Array<{
+    name: string;
     speaker: string;
     line: string;
   }>;
@@ -44,7 +45,7 @@ export interface Scenario {
   music: string;
   musicUrl?: string;
   language: Language;
-  characters: Array<{ name: string, description: string, imageGcsUri?: string }>;
+  characters: Array<{ name: string, description: string, voice?: string, imageGcsUri?: string }>;
   settings: Array<{ name: string, description: string, imageGcsUri?: string }>;
   props: Array<{ name: string, description: string, imageGcsUri?: string }>;
   logoOverlay?: string;

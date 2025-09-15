@@ -1,4 +1,4 @@
-import { Language, Scene } from '@/app/types';
+import { Language, Scene, Scenario } from '@/app/types';
 import { videoPromptToString } from '@/lib/prompt-utils';
 import { generateSceneVideo, waitForOperation } from '@/lib/veo';
 import { Storage } from '@google-cloud/storage';
@@ -33,8 +33,9 @@ const placeholderVideoUrls916 = [
  */
 export async function POST(req: Request): Promise<Response> {
 
-  const { scenes, language, aspectRatio, model, generateAudio }: {
+  const { scenes, scenario, language, aspectRatio, model, generateAudio }: {
     scenes: Array<Scene>
+    scenario: Scenario
     language: Language
     aspectRatio: string
     model?: string
@@ -62,7 +63,7 @@ export async function POST(req: Request): Promise<Response> {
             url = placeholderVideoUrls[Math.floor(Math.random() * placeholderVideoUrls.length)];
           }
         } else {
-          const promptString = typeof scene.videoPrompt === 'string' ? scene.videoPrompt : videoPromptToString(scene.videoPrompt);
+          const promptString = typeof scene.videoPrompt === 'string' ? scene.videoPrompt : videoPromptToString(scene.videoPrompt, scenario);
           logger.debug(promptString)
           const operationName = await generateSceneVideo(promptString, scene.imageGcsUri!, aspectRatio, model || "veo-3.0-generate-001", generateAudio !== false);
           logger.debug(`Operation started for scene ${index + 1}`);

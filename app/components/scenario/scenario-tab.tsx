@@ -14,7 +14,7 @@ interface ScenarioTabProps {
     onGenerateStoryBoard: () => void;
     isLoading: boolean;
     onScenarioUpdate?: (updatedScenario: Scenario) => void;
-    onRegenerateCharacterImage?: (characterIndex: number, name: string, description: string) => Promise<void>;
+    onRegenerateCharacterImage?: (characterIndex: number, name: string, description: string, voice: string) => Promise<void>;
     onUploadCharacterImage?: (characterIndex: number, file: File) => Promise<void>;
     generatingCharacterImages?: Set<number>;
     onRegenerateSettingImage?: (settingIndex: number, name: string, description: string) => Promise<void>;
@@ -32,6 +32,7 @@ export function ScenarioTab({ scenario, onGenerateStoryBoard, isLoading, onScena
     const [editingCharacterIndex, setEditingCharacterIndex] = useState<number | null>(null);
     const [editedCharacterDescriptions, setEditedCharacterDescriptions] = useState<string[]>([]);
     const [editedCharacterNames, setEditedCharacterNames] = useState<string[]>([]);
+    const [editedCharacterVoices, setEditedCharacterVoices] = useState<string[]>([]);
     const [characterHoverStates, setCharacterHoverStates] = useState<boolean[]>([]);
     const [editingSettingIndex, setEditingSettingIndex] = useState<number | null>(null);
     const [editedSettingDescriptions, setEditedSettingDescriptions] = useState<string[]>([]);
@@ -63,6 +64,7 @@ export function ScenarioTab({ scenario, onGenerateStoryBoard, isLoading, onScena
         if (scenario?.characters) {
             setEditedCharacterDescriptions(scenario.characters.map(char => char.description));
             setEditedCharacterNames(scenario.characters.map(char => char.name));
+            setEditedCharacterVoices(scenario.characters.map(char => char.voice || ''));
             // Initialize refs array for character editing areas
             characterEditingRefs.current = new Array(scenario.characters.length).fill(null);
             // Initialize refs array for character file inputs
@@ -142,7 +144,7 @@ export function ScenarioTab({ scenario, onGenerateStoryBoard, isLoading, onScena
         return () => {
             document.removeEventListener('mousedown', handleClickOutside);
         };
-    }, [isEditing, editedScenario, editingCharacterIndex, editedCharacterDescriptions, editedCharacterNames, editingSettingIndex, editedSettingDescriptions, editedSettingNames, editingPropIndex, editedPropDescriptions, editedPropNames, isEditingMusic, editedMusic]);
+    }, [isEditing, editedScenario, editingCharacterIndex, editedCharacterDescriptions, editedCharacterNames, editedCharacterVoices, editingSettingIndex, editedSettingDescriptions, editedSettingNames, editingPropIndex, editedPropDescriptions, editedPropNames, isEditingMusic, editedMusic]);
 
     const handleScenarioChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
         setEditedScenario(e.target.value);
@@ -152,6 +154,14 @@ export function ScenarioTab({ scenario, onGenerateStoryBoard, isLoading, onScena
         const newDescriptions = [...editedCharacterDescriptions];
         newDescriptions[index] = value;
         setEditedCharacterDescriptions(newDescriptions);
+    };
+
+    const handleCharacterVoiceChange = (index: number, value: string) => {
+        const newVoices = [...editedCharacterVoices];
+        console.log('handleCharacterVoiceChange');
+        console.log(value);
+        newVoices[index] = value;
+        setEditedCharacterVoices(newVoices);
     };
 
     const handleCharacterNameChange = (index: number, value: string) => {
@@ -255,13 +265,17 @@ export function ScenarioTab({ scenario, onGenerateStoryBoard, isLoading, onScena
         if (scenario && onScenarioUpdate) {
             const updatedDescription = editedCharacterDescriptions[index];
             const updatedName = editedCharacterNames[index];
+            const updatedVoice = editedCharacterVoices[index];
+            console.log('handleSaveCharacter');
+            console.log(updatedVoice);
 
             // Update the scenario with the new description and name
             const updatedCharacters = [...scenario.characters];
             updatedCharacters[index] = {
                 ...updatedCharacters[index],
                 name: updatedName,
-                description: updatedDescription
+                description: updatedDescription,
+                voice: updatedVoice
             };
             const updatedScenario = {
                 ...scenario,
@@ -271,7 +285,7 @@ export function ScenarioTab({ scenario, onGenerateStoryBoard, isLoading, onScena
 
             // Optionally regenerate image with the updated name and description
             if (onRegenerateCharacterImage) {
-                await onRegenerateCharacterImage(index, updatedName, updatedDescription);
+                await onRegenerateCharacterImage(index, updatedName, updatedDescription, updatedVoice);
             }
         }
         setEditingCharacterIndex(null);
@@ -608,12 +622,23 @@ export function ScenarioTab({ scenario, onGenerateStoryBoard, isLoading, onScena
                                                         placeholder="Enter character description..."
                                                     />
                                                 </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium mb-1">Voice</label>
+                                                    <Input
+                                                        value={editedCharacterVoices[index] || ''}
+                                                        onChange={(e) => handleCharacterVoiceChange(index, e.target.value)}
+                                                        placeholder="Enter voice description..."
+                                                    />
+                                                </div>
                                             </div>
                                         ) : (
                                             <div>
                                                 <h4 className="text-lg font-semibold mb-2">{character.name}</h4>
                                                 <p className="whitespace-pre-wrap p-4 rounded-lg border border-transparent group-hover:border-gray-200 transition-colors">
                                                     {character.description}
+                                                </p>
+                                                <p className="whitespace-pre-wrap p-4 rounded-lg border border-transparent group-hover:border-gray-200 transition-colors">
+                                                    Voice: {character.voice}
                                                 </p>
                                             </div>
                                         )}

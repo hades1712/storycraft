@@ -30,6 +30,7 @@ export interface ScenarioUpdateResult {
     updatedCharacter?: {
         name: string;
         description: string;
+        voice: string;
     };
     updatedSetting?: {
         name: string;
@@ -48,6 +49,7 @@ const CharacterScenarioUpdateSchema = z.object({
     updatedCharacter: z.object({
         name: z.string(),
         description: z.string(),
+        voice: z.string(),
     }),
 });
 
@@ -89,7 +91,7 @@ async function updateScenarioText(
     oldName: string,
     newName: string,
     newDescription: string,
-    entityType: 'character' | 'setting' | 'prop' = 'character'
+    entityType: 'character' | 'setting' | 'prop' = 'character',
 ): Promise<string> {
     const text = await generateContent(
         `Update the following scenario to reflect ${entityType} changes. The ${entityType} previously named "${oldName}" is now named "${newName}" with the following updated description: "${newDescription}".
@@ -300,7 +302,7 @@ export async function regenerateCharacterAndScenarioFromText(
             oldCharacterName,
             newCharacterName,
             newCharacterDescription,
-            'character'
+            'character',
         );
 
         return {
@@ -321,6 +323,7 @@ export async function regenerateCharacterAndScenarioFromImage(
     currentScenario: string,
     characterName: string,
     currentCharacterDescription: string,
+    currentCharacterVoice: string,
     imageGcsUri: string,
     allCharacters: Character[],
     style: string
@@ -346,11 +349,12 @@ ALL CHARACTERS IN THE STORY:
 ${characterListText}
 
 CHARACTER TO UPDATE (${characterName}):
-"${currentCharacterDescription}"
+"Description: ${currentCharacterDescription}"
+"Voice: ${currentCharacterVoice}"
 
 INSTRUCTIONS:
 1. Examine the uploaded image carefully
-2. Update ONLY the description of ${characterName} to accurately reflect what you see in the image (appearance, clothing, features, etc.)
+2. Update ONLY the description and voice of ${characterName} to accurately reflect what you see in the image (appearance, clothing, features, etc.)
 3. Update any references to ${characterName} in the scenario text to maintain consistency with the new appearance
 4. PRESERVE ALL OTHER CHARACTERS - do not remove or modify descriptions of other characters
 5. Keep the story as a multi-character narrative - maintain all character interactions and plot elements
