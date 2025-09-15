@@ -31,7 +31,6 @@ interface EditorTabProps {
 
 const TIMELINE_DURATION = 65 // Total timeline duration in seconds
 const MARKER_INTERVAL = 5 // Time marker interval in seconds
-const SCENE_DURATION = 8 // Duration of each scene in seconds
 const CLIP_PADDING = 2 // Padding between clips in pixels
 const FADE_DURATION = 0.15; // 150ms for audio fade-in/out
 
@@ -60,6 +59,8 @@ export function EditorTab({
     onRemoveVoiceover,
     onRemoveMusic,
 }: EditorTabProps) {
+
+    const SCENE_DURATION = scenario.durationSeconds || 8 // Duration of each scene in seconds
     const timelineRef = useRef<HTMLDivElement>(null)
     const fileInputRef = useRef<HTMLInputElement>(null)
     const [isDragging, setIsDragging] = useState(false)
@@ -126,7 +127,7 @@ export function EditorTab({
     }
 
     // Calculate the scale factor to fit all scenes within the timeline
-    const totalSceneDuration = scenario.scenes.length * 8 // 8 seconds per scene
+    const totalSceneDuration = scenario.scenes.length * SCENE_DURATION
     const timeScale = TIMELINE_DURATION / totalSceneDuration
 
     const [layers, setLayers] = useState<TimelineLayer[]>([

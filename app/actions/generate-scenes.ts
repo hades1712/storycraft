@@ -12,7 +12,7 @@ import { getRAIUserMessage } from '@/lib/rai'
 import { Scenario, Language } from "../types"
 import logger from '../logger';
 
-export async function generateScenario(name: string, pitch: string, numScenes: number, style: string, aspectRatio: string, language: Language, modelName: string = 'gemini-2.5-flash', thinkingBudget: number = 0): Promise<Scenario> {
+export async function generateScenario(name: string, pitch: string, numScenes: number, style: string, aspectRatio: string, durationSeconds: number, language: Language, modelName: string = 'gemini-2.5-flash', thinkingBudget: number = 0): Promise<Scenario> {
   try {
     const prompt = getScenarioPrompt(pitch, numScenes, style, language);
     logger.debug('Create a scenario')
@@ -48,6 +48,7 @@ export async function generateScenario(name: string, pitch: string, numScenes: n
         style: style,
         props: parsedScenario.props || [],
         aspectRatio: aspectRatio,
+        durationSeconds: durationSeconds,
         language: {
           name: language.name,
           code: language.code

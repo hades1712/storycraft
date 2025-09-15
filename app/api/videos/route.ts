@@ -33,13 +33,14 @@ const placeholderVideoUrls916 = [
  */
 export async function POST(req: Request): Promise<Response> {
 
-  const { scenes, scenario, language, aspectRatio, model, generateAudio }: {
+  const { scenes, scenario, language, aspectRatio, model, generateAudio, durationSeconds }: {
     scenes: Array<Scene>
     scenario: Scenario
     language: Language
     aspectRatio: string
     model?: string
     generateAudio?: boolean
+    durationSeconds?: number
   } = await req.json();
 
 
@@ -47,6 +48,7 @@ export async function POST(req: Request): Promise<Response> {
   try {
     logger.debug('Generating videos in parallel...');
     logger.debug(`scenes: ${scenes}`);
+    logger.debug(`durationSeconds: ${durationSeconds}`);
     const storage = new Storage();
 
     const videoGenerationTasks = scenes
@@ -65,7 +67,7 @@ export async function POST(req: Request): Promise<Response> {
         } else {
           const promptString = typeof scene.videoPrompt === 'string' ? scene.videoPrompt : videoPromptToString(scene.videoPrompt, scenario);
           logger.debug(promptString)
-          const operationName = await generateSceneVideo(promptString, scene.imageGcsUri!, aspectRatio, model || "veo-3.0-generate-001", generateAudio !== false);
+          const operationName = await generateSceneVideo(promptString, scene.imageGcsUri!, aspectRatio, model || "veo-3.0-generate-001", generateAudio !== false, durationSeconds);
           logger.debug(`Operation started for scene ${index + 1}`);
 
           const generateVideoResponse = await waitForOperation(operationName, model || "veo-3.0-generate-001");

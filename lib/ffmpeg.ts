@@ -634,7 +634,7 @@ export async function exportMovie(
           return localPath;
         })
       );
-      await mixAudioWithVoiceovers(speachAudioFiles, audioFile, outputPathWithVoiceover);
+      await mixAudioWithVoiceovers(speachAudioFiles, audioFile, outputPathWithVoiceover, 0.4, videoLayer.items[0].duration);
       musicAudioFile = outputPathWithVoiceover;
     }
 

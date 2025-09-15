@@ -4,21 +4,20 @@
     * choose model
     * fix GCSImage?
     * voice description
+    * clip duration
 
 # On Hold:
     * google_searc + url_context
 
 # Next:
-    * clip duration
-    * fix image generation language Imagen4
     * fix delete character/settings/props loader
+    * fix image generation language Imagen4
     * nano banana more than 3 reference images
     * voiceover single quotes bug?
     * upload style image
     * Review Scene data:
         * scene by scene model choice + params
         * conversational edit images
-    * videos duration params
     
 
 # TODO:

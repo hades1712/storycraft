@@ -52,6 +52,7 @@ export function StoriesTab({ onSelectScenario, onCreateNewStory }: StoriesTabPro
       scenario: scenario.scenario,
       style: scenario.style,
       aspectRatio: scenario.aspectRatio || "16:9",
+      durationSeconds: scenario.durationSeconds || 8,
       genre: scenario.genre,
       mood: scenario.mood,
       music: scenario.music,

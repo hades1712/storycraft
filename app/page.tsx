@@ -37,11 +37,18 @@ const DEFAULT_LANGUAGE: Language = {
   code: "en-US"
 };
 
+const VALID_DURATIONS = [4, 6, 8] as const;
+
+const validateDuration = (duration: number): number => {
+  return VALID_DURATIONS.includes(duration as any) ? duration : 8;
+};
+
 export default function Home() {
   const [pitch, setPitch] = useState('')
   const [name, setName] = useState('')
   const [style, setStyle] = useState('Photographic')
   const [aspectRatio, setAspectRatio] = useState('16:9')
+  const [durationSeconds, setDurationSeconds] = useState(8)
   const [language, setLanguage] = useState<Language>(DEFAULT_LANGUAGE)
   const [logoOverlay, setLogoOverlay] = useState<string | null>(null)
   const [isUploading, setIsUploading] = useState(false);
@@ -89,7 +96,7 @@ export default function Home() {
     setIsLoading(true)
     setErrorMessage(null)
     try {
-      const scenario = await generateScenario(name, pitch, numScenes, style, aspectRatio, language, modelName, thinkingBudget)
+      const scenario = await generateScenario(name, pitch, numScenes, style, aspectRatio, durationSeconds, language, modelName, thinkingBudget)
       setScenario(scenario)
       if (logoOverlay) {
         scenario.logoOverlay = logoOverlay
@@ -293,7 +300,7 @@ export default function Home() {
     }
   }
 
-  const handleGenerateAllVideos = async (model: string = "veo-3.0-generate-001", generateAudio: boolean = true) => {
+  const handleGenerateAllVideos = async (model: string = "veo-3.0-generate-001", generateAudio: boolean = true, durationSeconds: number = 8) => {
     if (!scenario) return;
     setErrorMessage(null);
     console.log("[Client] Generating videos for all scenes - START");
@@ -305,7 +312,7 @@ export default function Home() {
           const response = await fetch('/api/videos', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ scenes: [scene], scenario: scenario, language: scenario?.language, aspectRatio: scenario?.aspectRatio, model, generateAudio }),
+            body: JSON.stringify({ scenes: [scene], scenario: scenario, language: scenario?.language, aspectRatio: scenario?.aspectRatio, model, generateAudio, durationSeconds: scenario?.durationSeconds }),
           });
 
           const { success, videoUrls, error } = await response.json();
@@ -425,7 +432,7 @@ export default function Home() {
       const response = await fetch('/api/videos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ scenes: [scene], scenario: scenario, language: scenario?.language, aspectRatio: scenario?.aspectRatio }),
+        body: JSON.stringify({ scenes: [scene], scenario: scenario, language: scenario?.language, aspectRatio: scenario?.aspectRatio, durationSeconds: scenario?.durationSeconds }),
       });
 
       const { success, videoUrls, error } = await response.json();
@@ -854,6 +861,7 @@ export default function Home() {
     setStyle(selectedScenario.style || 'Photographic');
     setLanguage(selectedScenario.language || DEFAULT_LANGUAGE);
     setNumScenes(selectedScenario.scenes?.length || 6);
+    setDurationSeconds(validateDuration(selectedScenario.durationSeconds || 8));
     setLogoOverlay(selectedScenario.logoOverlay || null);
 
     // Check if all scenes have videos to determine which tab to show
@@ -1069,6 +1077,8 @@ export default function Home() {
             setStyle={setStyle}
             aspectRatio={aspectRatio}
             setAspectRatio={setAspectRatio}
+            durationSeconds={durationSeconds}
+            setDurationSeconds={setDurationSeconds}
             language={language}
             setLanguage={setLanguage}
             isLoading={isLoading}

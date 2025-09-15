@@ -58,6 +58,18 @@ const ASPECT_RATIOS = [
   { name: "9:16", value: "9:16", icon: "aspect-square" }
 ];
 
+const DURATION_OPTIONS = [
+  { name: "4 seconds", value: 4 },
+  { name: "6 seconds", value: 6 },
+  { name: "8 seconds", value: 8 }
+];
+
+const VALID_DURATIONS = [4, 6, 8] as const;
+
+const validateDuration = (duration: number): number => {
+  return VALID_DURATIONS.includes(duration as any) ? duration : 8;
+};
+
 const MODEL_OPTIONS = [
   { 
     label: "Scenario with Gemini 2.5 Flash", 
@@ -92,6 +104,8 @@ interface CreateTabProps {
   setStyle: (style: string) => void
   aspectRatio: string
   setAspectRatio: (aspectRatio: string) => void
+  durationSeconds: number
+  setDurationSeconds: (duration: number) => void
   language: Language
   setLanguage: (language: Language) => void
   isLoading: boolean
@@ -111,6 +125,8 @@ export function CreateTab({
   setStyle,
   aspectRatio,
   setAspectRatio,
+  durationSeconds,
+  setDurationSeconds,
   language,
   setLanguage,
   isLoading,
@@ -177,26 +193,25 @@ export function CreateTab({
         </div>
       </div>
       <div className='max-w-xl mx-auto '>
-        <div className="space-y-2">
-          <h2 className="text-xl font-semibold">Give your story a name</h2>
+        <div className="space-y-3">
+          <h3 className="text-lg font-semibold">Name</h3>
           <Input
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Enter story name..."
-            className="mb-4"
           />
-          <h2 className="text-xl font-semibold">Enter your story pitch</h2>
+          <h3 className="text-lg font-semibold">Pitch</h3>
           <p className="text-muted-foreground">
-            Describe your story idea and we&apos;ll generate a complete storyboard with scenes, descriptions, and voiceover text.
+            Describe your story idea.
           </p>
-        </div>
-        <div className="space-y-4">
           <Textarea
             value={pitch}
             onChange={(e) => setPitch(e.target.value)}
             placeholder="Once upon a time..."
             className="min-h-[100px]"
             rows={4} />
+        </div>
+        <div className="space-y-4 mt-6">
           <div className="flex items-center space-x-2">
             <label htmlFor="language" className="text-sm font-medium">
               Language:
@@ -224,64 +239,89 @@ export function CreateTab({
               </SelectContent>
             </Select>
           </div>
-          <div className="flex items-center space-x-2">
-            <label htmlFor="numScenes" className="text-sm font-medium">
-              Number of Scenes:
-            </label>
-            <Input
-              id="numScenes"
-              type="number"
-              min="1"
-              max="8"
-              value={numScenes}
-              onChange={(e) => setNumScenes(Math.max(1, Math.min(20, parseInt(e.target.value) || 1)))}
-              className="w-20"
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Aspect Ratio:</label>
-            <div className="flex space-x-6">
-              {ASPECT_RATIOS.map((ratio) => (
-                <div key={ratio.value} className="flex flex-col items-center space-y-2">
-                  <div
-                    className={`w-16 h-16 rounded-lg border-2 flex items-center justify-center cursor-pointer transition-colors ${
-                      aspectRatio === ratio.value
-                        ? 'bg-primary border-primary text-primary-foreground'
-                        : 'border-gray-300 bg-white hover:border-gray-400'
-                    }`}
-                    onClick={() => setAspectRatio(ratio.value)}
-                  >
-                    <div
-                      className={`border-2 rounded-sm flex items-center justify-center transition-colors ${
-                        aspectRatio === ratio.value
-                          ? 'border-primary-foreground bg-primary-foreground'
-                          : 'border-gray-600 bg-gray-600'
-                      }`}
-                      style={{
-                        aspectRatio: ratio.value === '16:9' ? '16/9' : '9/16',
-                        width: ratio.value === '16:9' ? '36px' : '20px',
-                        height: ratio.value === '16:9' ? '20px' : '36px'
-                      }}
-                    />
-                  </div>
-                  <span className="text-xs text-gray-600">{ratio.name}</span>
+          <div className="space-y-3">
+            <h3 className="text-lg font-semibold">Scenes</h3>
+            <div className="flex items-center space-x-6">
+              <div className="flex items-center space-x-2">
+                <label htmlFor="numScenes" className="text-sm font-medium">
+                  Number:
+                </label>
+                <Input
+                  id="numScenes"
+                  type="number"
+                  min="1"
+                  max="8"
+                  value={numScenes}
+                  onChange={(e) => setNumScenes(Math.max(1, Math.min(20, parseInt(e.target.value) || 1)))}
+                  className="w-20"
+                />
+              </div>
+              <div className="flex items-center space-x-2">
+                <label htmlFor="durationSeconds" className="text-sm font-medium">
+                  Duration:
+                </label>
+                <Select
+                  value={durationSeconds.toString()}
+                  onValueChange={(value) => setDurationSeconds(validateDuration(parseInt(value)))}
+                >
+                  <SelectTrigger className="w-[150px]">
+                    <SelectValue placeholder="Select duration">
+                      {durationSeconds} seconds
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {DURATION_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value.toString()}>
+                        {option.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-center space-x-2">
+                <label className="text-sm font-medium">Aspect Ratio:</label>
+                <div className="flex space-x-3">
+                  {ASPECT_RATIOS.map((ratio) => (
+                    <div key={ratio.value} className="flex flex-col items-center space-y-1">
+                      <div
+                        className={`w-12 h-12 rounded-lg border-2 flex items-center justify-center cursor-pointer transition-colors ${
+                          aspectRatio === ratio.value
+                            ? 'bg-primary border-primary text-primary-foreground'
+                            : 'border-gray-300 bg-white hover:border-gray-400'
+                        }`}
+                        onClick={() => setAspectRatio(ratio.value)}
+                      >
+                        <div
+                          className={`border-2 rounded-sm flex items-center justify-center transition-colors ${
+                            aspectRatio === ratio.value
+                              ? 'border-primary-foreground bg-primary-foreground'
+                              : 'border-gray-600 bg-gray-600'
+                          }`}
+                          style={{
+                            aspectRatio: ratio.value === '16:9' ? '16/9' : '9/16',
+                            width: ratio.value === '16:9' ? '28px' : '16px',
+                            height: ratio.value === '16:9' ? '16px' : '28px'
+                          }}
+                        />
+                      </div>
+                      <span className="text-xs text-gray-600">{ratio.name}</span>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              </div>
             </div>
           </div>
-          <div className="space-y-2">
-            <label htmlFor="style" className="text-sm font-medium">
-              Style:
-            </label>
+          <div className="space-y-3">
+            <h3 className="text-lg font-semibold">Style</h3>
             <StyleSelector styles={styles} onSelect={setStyle} />
-          </div>
-          <div className="flex items-center space-x-2">
-            <Input
-              id="style"
-              value={style}
-              onChange={(e) => setStyle(e.target.value)}
-              className="w-200"
-            />
+            <div className="flex items-center space-x-2">
+              <Input
+                id="style"
+                value={style}
+                onChange={(e) => setStyle(e.target.value)}
+                className="w-200"
+              />
+            </div>
           </div>
           {errorMessage && (
             <div className="mt-4 p-8 bg-red-100 border border-red-400 text-red-700 rounded whitespace-pre-wrap">

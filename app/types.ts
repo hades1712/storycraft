@@ -40,6 +40,7 @@ export interface Scenario {
   scenario: string;
   style: string;
   aspectRatio: string;
+  durationSeconds: number;
   genre: string;
   mood: string;
   music: string;

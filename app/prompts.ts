@@ -116,6 +116,7 @@ Remember, your goal is to create a compelling and visually interesting story tha
 }
 
 export function getScenesPrompt(scenario: Scenario, numScenes: number, style: string, language: Language): string {
+  const durationSeconds = scenario.durationSeconds || 8;
   const prompt = `
       You are tasked with generating a creative scenes for a short movie and creating prompts for storyboard illustrations. Follow these instructions carefully:
 1. First, you will be given a scenario in ${scenario.language.name}. This scenario will be the foundation for your storyboard.
@@ -150,7 +151,7 @@ ${scenario.mood}
  a. For each scene, provide:
  1. A video prompt in ${language.name}, focusing on the movement of the characters, objects, in the scene, the style should be ${style}. No children. Return as a JSON object with the following schema:
 {
-  "Action": "Describe precisely what the subject(s) is(are) doing within the 8-second clip. Be specific and evocative. Separate description from action. The Subject field describes who they are; the Action field describes what they do.",
+  "Action": "Describe precisely what the subject(s) is(are) doing within the ${durationSeconds} seconds clip. Be specific and evocative. Separate description from action. The Subject field describes who they are; the Action field describes what they do.",
   "Camera_Motion": "Explicitly state the camera movement, even if it's static. This removes ambiguity.",
   "Ambiance_Audio": "Diegetic Sound Only. This is crucial. Describe only the sounds that exist within the world of the scene. Do not mention music or narration, as those are post-production layers for different models. Be specific.",
   "Dialogue": [
@@ -190,7 +191,7 @@ ${scenario.mood}
   ],
 }   
  3. A scene description  in ${language.name} explaining what happens (description). You can use the character(s) name(s) in your descriptions.
- 4. A short, narrator voiceover text in ${language.name}. One full sentence, 6s max. (voiceover). You can use the character(s) name(s) in your vocieovers. 
+ 4. A short, narrator voiceover text in ${language.name}. One full sentence, ${durationSeconds - 2}s max. (voiceover). You can use the character(s) name(s) in your vocieovers. 
 a. Each image prompt should describe a key scene or moment from your scenario.
 b. Ensure that the image prompts, when viewed in sequence, tell a coherent story.
 c. Include descriptions of characters, settings, and actions that are consistent across all image prompts.
@@ -243,7 +244,7 @@ Here's an example of how your output should be structured:
     ]
   },
   "description": [A scene description explaining what happens],
-  "voiceover": [A short, narrator voiceover text. One full sentence, 6s max.],
+  "voiceover": [A short, narrator voiceover text. One full sentence, ${durationSeconds - 2}s max.],
   "charactersPresent": [An array list of names of characters visually present in the scene]
  },
  [...]

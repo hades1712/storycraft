@@ -94,7 +94,7 @@ async function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-export async function generateSceneVideo(prompt: string, imageGcsUri: string, aspectRatio: string = "16:9", model: string = "veo-3.0-generate-001", generateAudio: boolean = true): Promise<string> {
+export async function generateSceneVideo(prompt: string, imageGcsUri: string, aspectRatio: string = "16:9", model: string = "veo-3.0-generate-001", generateAudio: boolean = true, durationSeconds: number = 8): Promise<string> {
   const token = await getAccessToken();
   const maxRetries = 5; // Maximum number of retries
   const initialDelay = 1000; // Initial delay in milliseconds (1 second)
@@ -127,7 +127,7 @@ export async function generateSceneVideo(prompt: string, imageGcsUri: string, as
               sampleCount: 1,
               aspectRatio: aspectRatio,
               generateAudio: generateAudio,
-              durationSeconds: 4,
+              durationSeconds: durationSeconds,
             },
           }),
         }
