@@ -2,10 +2,11 @@
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { Loader2, Pencil, RefreshCw, Upload, Video, Trash2, GripVertical } from 'lucide-react'
+import { Loader2, Pencil, RefreshCw, Upload, Video, Trash2, GripVertical, MessageCircle } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Scene, Scenario } from '../../types'
 import { EditSceneModal } from './edit-scene-modal'
+import { ConversationalEditModal } from './conversational-edit-modal'
 import { VideoPlayer } from "../video/video-player"
 import { GcsImage } from "../ui/gcs-image"
 import { cn } from "@/lib/utils"
@@ -50,6 +51,7 @@ export function SceneData({
   onDrop,
 }: SceneDataProps) {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [isConversationalEditOpen, setIsConversationalEditOpen] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleUploadClick = () => {
@@ -130,6 +132,16 @@ export function SceneData({
                   <Upload className="h-4 w-4" />
                   <span className="sr-only">Upload image</span>
                 </Button>
+                <Button
+                  variant="secondary"
+                  size="icon"
+                  className="bg-black/50 hover:bg-purple-500 hover:text-white"
+                  onClick={() => setIsConversationalEditOpen(true)}
+                  disabled={isGenerating}
+                >
+                  <MessageCircle className="h-4 w-4" />
+                  <span className="sr-only">Conversational edit</span>
+                </Button>
                 <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" className="hidden" />
               </div>
               {canDelete && (
@@ -186,6 +198,14 @@ export function SceneData({
         scenario={scenario}
         onUpdate={onUpdate}
         displayMode={displayMode}
+      />
+      <ConversationalEditModal
+        isOpen={isConversationalEditOpen}
+        onClose={() => setIsConversationalEditOpen(false)}
+        scene={scene}
+        sceneNumber={sceneNumber}
+        scenario={scenario}
+        onUpdate={onUpdate}
       />
     </Card>
   )

@@ -168,7 +168,7 @@ ${scenario.mood}
  No children. Return as a JSON object with the following schema:
 {
   "Style": "Define the visual language of your project",
-  "Scene": "Describe the specific scene being depicted - what is happening in this moment, the action or situation being shown, and how it fits into the overall narrative flow.",
+  "Scene": "Describe the specific scene being depicted - what is happening in this moment, the action or situation being shown, and how it fits into the overall narrative flow. Focus on the immediate action and situation. Ensure the depiction avoids showing elements beyond this specific moment. Exclude any details that suggest a broader story or character arcs. The scene should be self-contained, not implying past events or future developments.",
   "Composition": {
     "shot_type": "Examples include Cinematic close-up, Wide establishing shot, etc.",
     "lighting": "Examples include high-contrast, soft natural light, etc.",

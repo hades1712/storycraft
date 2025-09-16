@@ -7,19 +7,21 @@
     * clip duration
     * fix delete character/settings/props loader
     * nano banana more than 3 reference images
+    * fix image generation language Imagen4
 
 # On Hold:
     * google_searc + url_context
+    * upload style image
 
 # Next:
-    * fix image generation language Imagen4
-    * upload style image
+    * fix scene action full character description
     * Review Scene data:
         * scene by scene model choice + params
         * conversational edit images
     
 
 # TODO:
+    * add images to conversational edit (e.g. add this logo onto ...)
     * linter and prettier format
     * Editor:
         * shorten move clips
