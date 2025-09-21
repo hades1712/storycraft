@@ -50,7 +50,23 @@ export function UserProfile({ isCollapsed }: { isCollapsed: boolean }) {
 
     // --- Auth.js Mode Rendering ---
     if (!user) { // Not authenticated via Auth.js
-        return null;
+        // 显示登录/注册按钮给未登录用户
+        return (
+            <div className="flex items-center gap-2">
+                <a
+                    href="/sign-in"
+                    className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors"
+                >
+                    登录
+                </a>
+                <a
+                    href="/sign-up"
+                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors"
+                >
+                    注册
+                </a>
+            </div>
+        );
     }
 
     // Authenticated via Auth.js
@@ -123,4 +139,4 @@ export function UserProfile({ isCollapsed }: { isCollapsed: boolean }) {
             )}
         </div>
     );
-} 
+}

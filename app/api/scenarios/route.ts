@@ -126,16 +126,23 @@ export async function GET(request: NextRequest) {
       })
     } else {
       // Get all scenarios for user
+      // 注意：移除了 orderBy 以避免 Firestore 复合索引要求
+      // 排序将在客户端进行
       const scenariosRef = firestore.collection('scenarios')
         .where('userId', '==', userId)
-        .orderBy('updatedAt', 'desc')
       
       const scenariosSnapshot = await scenariosRef.get()
       const scenarios = scenariosSnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
-      }))
+      })) as Array<{ id: string; updatedAt?: any; [key: string]: any }>
       
+      // 在服务端进行排序，避免 Firestore 索引问题
+      scenarios.sort((a, b) => {
+        const aTime = a.updatedAt?.toDate?.() || new Date(a.updatedAt) || new Date(0)
+        const bTime = b.updatedAt?.toDate?.() || new Date(b.updatedAt) || new Date(0)
+        return bTime.getTime() - aTime.getTime() // 降序排列
+      })
 
       return NextResponse.json({ scenarios })
     }

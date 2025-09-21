@@ -8,11 +8,24 @@ import { generateImage } from '@/lib/gemini'
 import logger from '@/app/logger';
 import { getRAIUserMessage } from '@/lib/rai'
 import { createCollage } from '@/app/actions/resize-image'
+import { auth } from '@/auth';
 
 //export const runtime = 'nodejs';
 
 export async function POST(request: NextRequest) {
   try {
+    // 🔐 认证检查：确保只有登录用户才能重新生成图片
+    const session = await auth();
+    if (!session?.user?.id) {
+      logger.warn('Unauthorized image regeneration attempt');
+      return NextResponse.json(
+        { success: false, error: '请先登录后再重新生成图片' },
+        { status: 401 }
+      );
+    }
+
+    logger.info(`User ${session.user.id} is regenerating image`);
+
     const body = await request.json()
     const { prompt, scenario } = body as { prompt: ImagePrompt, scenario: Scenario }
 
@@ -102,6 +115,18 @@ export async function POST(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
+    // 🔐 认证检查：确保只有登录用户才能重新生成角色图片
+    const session = await auth();
+    if (!session?.user?.id) {
+      logger.warn('Unauthorized character image regeneration attempt');
+      return NextResponse.json(
+        { success: false, error: '请先登录后再重新生成角色图片' },
+        { status: 401 }
+      );
+    }
+
+    logger.info(`User ${session.user.id} is regenerating character image`);
+
     const body = await request.json()
     const { prompt } = body
 

@@ -27,12 +27,13 @@ export function EditSceneModal({ isOpen, onClose, scene, sceneNumber, scenario, 
   const [activeTab, setActiveTab] = useState('general'); // 'general', 'image' or 'video'
 
   useEffect(() => {
-    // Ensure the scene has proper structure for Subject array
+    // 确保场景具有正确的结构，包括 Subject 和 Context 数组
     const normalizedScene = {
       ...scene,
       imagePrompt: {
         ...scene.imagePrompt,
-        Subject: scene.imagePrompt.Subject || []
+        Subject: scene.imagePrompt.Subject || [],
+        Context: scene.imagePrompt.Context || []
       }
     }
     setEditedScene(normalizedScene)
@@ -141,7 +142,10 @@ export function EditSceneModal({ isOpen, onClose, scene, sceneNumber, scenario, 
   }
 
   const getSelectedSettingName = (): string => {
-    return editedScene.imagePrompt.Context.length > 0 ? editedScene.imagePrompt.Context[0].name : ''
+    // 安全检查：确保 Context 存在且不为 undefined
+    return editedScene.imagePrompt.Context && editedScene.imagePrompt.Context.length > 0 
+      ? editedScene.imagePrompt.Context[0].name 
+      : ''
   }
 
   const handleContextSelectionChange = (selectedSettingName: string) => {

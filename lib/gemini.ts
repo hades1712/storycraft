@@ -85,7 +85,8 @@ export async function generateImage(
                     const mimeType = part.inlineData!.mimeType!;
                     const extension = mimeType.split("/")[1] || "png";
                     const uuid = uuidv4()
-                    imageGcsUri = await uploadImage(imageBuffer.toString('base64'), `gemini-${uuid}.png`)
+                    // 使用正确的文件扩展名，但由于 uploadImage 会转换为 JPEG，使用 .jpg
+                    imageGcsUri = await uploadImage(imageBuffer.toString('base64'), `gemini-${uuid}.jpg`)
                     return { success: true, imageGcsUri: imageGcsUri! };
                 }
             };

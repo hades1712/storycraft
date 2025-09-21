@@ -1,100 +1,199 @@
 import { GetSignedUrlConfig, Storage } from '@google-cloud/storage';
+import { createGoogleAuth } from './auth-helper';
 import sharp from 'sharp';
 import logger from '@/app/logger';
 
-// Initialize storage
-const storage = new Storage({
-    projectId: process.env.PROJECT_ID,
-    // keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS, // Uncomment if needed
-});
+/**
+ * 初始化 Google Cloud Storage 客户端
+ * 
+ * 使用智能认证策略：
+ * - Cloud Run: 使用 ADC（服务账号自动认证）
+ * - 本地开发: 使用 GOOGLE_APPLICATION_CREDENTIALS 文件
+ */
+async function initializeStorage(): Promise<Storage> {
+  try {
+    // 初始化 Storage
+    // Storage 客户端会自动使用 Application Default Credentials (ADC)
+    // 在 Cloud Run 中会使用服务账号，在本地会使用 GOOGLE_APPLICATION_CREDENTIALS
+    const storage = new Storage({
+      projectId: process.env.PROJECT_ID,
+    });
 
-const storageUri = process.env.GCS_VIDEOS_STORAGE_URI; // Make sure this env var is set
+    logger.info('Google Cloud Storage 客户端初始化成功', {
+      projectId: process.env.PROJECT_ID
+    });
 
-export async function uploadImage(base64: string, filename: string): Promise<string | null> {
-    if (!storageUri) {
-        logger.error('GCS_VIDEOS_STORAGE_URI environment variable is not set.');
-        // Depending on requirements, you might want to throw an error instead
-        // throw new Error('Server configuration error: STORAGE_URI not specified.'); 
-        return null; // Return null to indicate failure due to missing config
-    }
-    if (!base64) {
-        logger.warn('Attempted to upload an empty base64 string.');
-        return null;
-    }
-
-    try {
-        // Decode the base64 string into a buffer
-        // Remove the data URI prefix if it exists (e.g., "data:image/jpeg;base64,")
-        const base64Data = base64.includes(',') ? base64.split(',')[1] : base64;
-        const buffer = Buffer.from(base64Data, 'base64');
-
-        // Get the bucket name from the storage URI
-        // We know storageUri is defined here due to the check above
-        const bucketName = storageUri.startsWith('gs://') 
-                           ? storageUri.substring(5).split('/')[0]
-                           : storageUri.split('/')[0]; // Basic fallback if not starting with gs://
-        
-        if (!bucketName) {
-            logger.error(`Could not extract bucket name from STORAGE_URI: ${storageUri}`);
-            return null;
-        }
-
-        // Get a reference to the bucket
-        const bucket = storage.bucket(bucketName);
-
-        // Create a reference to the file object
-        const file = bucket.file(filename);
-
-        // Upload the buffer to GCS
-        // We determine the content type; adjust if you expect other types
-        const contentType = 'data:image/png';
-
-        await file.save(buffer, {
-            metadata: {
-                contentType: contentType,
-                // Optional: Add cache control headers, etc.
-                // cacheControl: 'public, max-age=31536000',
-            },
-            public: false, // Keep files private unless explicitly made public
-        });
-
-        // Construct the GCS URI
-        const gcsUri = `gs://${bucketName}/${filename}`; // Construct the standard gs:// URI
-        logger.debug(`Successfully uploaded ${filename} to ${gcsUri}`);
-        return gcsUri;
-
-    } catch (error) {
-        logger.error(`Failed to upload image ${filename} to GCS:`, error);
-        return null;
-    }
+    return storage;
+  } catch (error) {
+    logger.error('Storage 初始化失败', error);
+    throw error;
+  }
 }
 
-export async function getSignedUrlFromGCS(gcsUri: string, download : boolean = false) {
-  const [bucketName, ...pathSegments] = gcsUri.replace("gs://", "").split("/");
-  const fileName = pathSegments.join("/");
-  const options: GetSignedUrlConfig = {
-    version: 'v4',
-    action: 'read',
-    expires: Date.now() + 60 * 60 * 1000,
-  };
+// 创建单例实例
+let storageInstance: Storage | null = null;
 
-  if (download) {
-    options.responseDisposition = 'attachment';
+/**
+ * 获取 Storage 实例（单例模式）
+ */
+export async function getStorage(): Promise<Storage> {
+  if (!storageInstance) {
+    storageInstance = await initializeStorage();
   }
+  return storageInstance;
+}
 
-  const [url] = await storage.bucket(bucketName).file(fileName).getSignedUrl(options);
-  return url;
+// 存储配置
+const storageUri = process.env.GCS_VIDEOS_STORAGE_URI;
+
+/**
+ * 上传图片到 Google Cloud Storage
+ * 支持 Buffer 和 base64 字符串两种输入格式
+ */
+export async function uploadImage(
+  imageData: Buffer | string,
+  fileName: string,
+  bucketName?: string
+): Promise<string> {
+  try {
+    const storage = await getStorage();
+    const bucket = storage.bucket(bucketName || process.env.GCS_BUCKET_NAME!);
+    const file = bucket.file(fileName);
+
+    // 将输入数据转换为 Buffer
+    let imageBuffer: Buffer;
+    if (typeof imageData === 'string') {
+      // 如果是 base64 字符串，转换为 Buffer
+      imageBuffer = Buffer.from(imageData, 'base64');
+    } else {
+      // 如果已经是 Buffer，直接使用
+      imageBuffer = imageData;
+    }
+
+    // 压缩图片
+    const compressedBuffer = await sharp(imageBuffer)
+      .resize(1024, 1024, { fit: 'inside', withoutEnlargement: true })
+      .jpeg({ quality: 85 })
+      .toBuffer();
+
+    // 上传文件
+    await file.save(compressedBuffer, {
+      metadata: {
+        contentType: 'image/jpeg',
+        cacheControl: 'public, max-age=31536000', // 1年缓存
+      },
+    });
+
+    // 注意：由于启用了 uniform bucket-level access，无法使用 makePublic()
+    // 返回标准的 GCS URI 格式，签名 URL 将通过缓存函数按需生成
+    const gcsUri = `gs://${bucket.name}/${fileName}`;
+    const publicUrl = gcsUri;
+    
+    logger.info('图片上传成功', {
+      fileName,
+      bucketName: bucket.name,
+      gcsUri: publicUrl, // 返回的是 GCS URI 格式，签名 URL 将按需生成
+      originalSize: imageBuffer.length,
+      compressedSize: compressedBuffer.length
+    });
+
+    return publicUrl;
+  } catch (error) {
+    logger.error('图片上传失败', { fileName, error });
+    throw error;
+  }
 }
 
 /**
- * Downloads an image from a GCS URI and returns a sharp object.
+ * 生成签名 URL
+ */
+export async function generateSignedUrl(
+  fileName: string,
+  bucketName?: string,
+  options: Partial<GetSignedUrlConfig> = {}
+): Promise<string> {
+  try {
+    const storage = await getStorage();
+    const bucket = storage.bucket(bucketName || process.env.GCS_BUCKET_NAME!);
+    const file = bucket.file(fileName);
+
+    const defaultOptions: GetSignedUrlConfig = {
+      version: 'v4',
+      action: 'read',
+      expires: Date.now() + 15 * 60 * 1000, // 15分钟
+      ...options,
+    };
+
+    const [signedUrl] = await file.getSignedUrl(defaultOptions);
+    
+    logger.info('生成签名 URL 成功', {
+      fileName,
+      bucketName: bucket.name,
+      expires: defaultOptions.expires
+    });
+
+    return signedUrl;
+  } catch (error) {
+    logger.error('生成签名 URL 失败', { fileName, error });
+    throw error;
+  }
+}
+
+/**
+ * 从 GCS URI 生成签名 URL
+ * 
+ * @param gcsUri GCS URI (例如: gs://bucket-name/path/to/file)
+ * @param download 是否作为下载链接
+ * @returns 签名 URL
+ */
+export async function getSignedUrlFromGCS(gcsUri: string, download: boolean = false): Promise<string> {
+  const [bucketName, ...pathSegments] = gcsUri.replace("gs://", "").split("/");
+  const fileName = pathSegments.join("/");
+  
+  try {
+    // 修复：使用 getStorage() 获取 storage 实例
+    const storage = await getStorage();
+    
+    const options: GetSignedUrlConfig = {
+      version: 'v4',
+      action: 'read',
+      expires: Date.now() + 60 * 60 * 1000, // 1小时过期
+    };
+
+    if (download) {
+      options.responseDisposition = 'attachment';
+    }
+
+    const [url] = await storage.bucket(bucketName).file(fileName).getSignedUrl(options);
+    
+    logger.info('从 GCS URI 生成签名 URL 成功', {
+      gcsUri,
+      bucketName,
+      fileName,
+      download
+    });
+    
+    return url;
+  } catch (error) {
+    logger.error(`Failed to generate signed URL for ${gcsUri}, falling back to public URL:`, error);
+    
+    // 备用方案：尝试使用公共URL
+    // 注意：这要求存储桶或文件是公开可访问的
+    const publicUrl = `https://storage.googleapis.com/${bucketName}/${fileName}`;
+    logger.debug(`Using public URL fallback: ${publicUrl}`);
+    return publicUrl;
+  }
+}
+
+/**
+ * 从 GCS URI 下载图片并返回 sharp 对象
  *
- * @param gcsUri The Google Cloud Storage URI (e.g., "gs://bucket-name/path/to/image.jpg").
- * @returns A Promise resolving to a sharp instance.
+ * @param gcsUri Google Cloud Storage URI (例如: "gs://bucket-name/path/to/image.jpg")
+ * @returns Promise 解析为 sharp 实例
  */
 export async function gcsUriToSharp(gcsUri: string): Promise<sharp.Sharp> {
   try {
-    // 1. Parse the GCS URI to extract bucket name and file path
+    // 1. 解析 GCS URI 提取存储桶名称和文件路径
     const match = gcsUri.match(/^gs:\/\/([^\/]+)\/(.+)$/);
     if (!match) {
       throw new Error(`Invalid GCS URI format: ${gcsUri}`);
@@ -102,31 +201,33 @@ export async function gcsUriToSharp(gcsUri: string): Promise<sharp.Sharp> {
     const bucketName = match[1];
     const filePath = match[2];
 
-    // 2. Download the image file from GCS into a buffer
+    // 2. 修复：使用 getStorage() 获取 storage 实例
+    const storage = await getStorage();
+
+    // 3. 从 GCS 下载图片文件到缓冲区
     logger.debug(`Downloading image from gs://${bucketName}/${filePath}`);
     const [buffer] = await storage.bucket(bucketName).file(filePath).download();
     logger.debug(`Image downloaded successfully (${buffer.length} bytes)`);
 
-    // 3. Create a sharp object from the downloaded buffer
+    // 4. 从下载的缓冲区创建 sharp 对象
     return sharp(buffer);
 
   } catch (error) {
     logger.error(`Error processing image from GCS URI ${gcsUri}:`, error);
-    // Re-throw the error so the caller can handle it
+    // 重新抛出错误，让调用者处理
     throw error;
   }
 }
 
 /**
- * Downloads an image from a GCS URI and returns its base64 encoded string
- * representation.
+ * 从 GCS URI 下载图片并返回 base64 编码字符串
  *
- * @param gcsUri The Google Cloud Storage URI (e.g., "gs://bucket-name/path/to/image.jpg").
- * @returns A Promise resolving to the base64 data URI string.
+ * @param gcsUri Google Cloud Storage URI (例如: "gs://bucket-name/path/to/image.jpg")
+ * @returns Promise 解析为 base64 数据字符串
  */
 export async function gcsUriToBase64(gcsUri: string): Promise<string> {
   try {
-    // 1. Parse the GCS URI
+    // 1. 解析 GCS URI
     const match = gcsUri.match(/^gs:\/\/([^\/]+)\/(.+)$/);
     if (!match) {
       throw new Error(`Invalid GCS URI format: ${gcsUri}`);
@@ -134,39 +235,53 @@ export async function gcsUriToBase64(gcsUri: string): Promise<string> {
     const bucketName = match[1];
     const filePath = match[2];
 
-    // 2. Download the image file into a buffer
+    // 2. 修复：使用 getStorage() 获取 storage 实例
+    const storage = await getStorage();
+
+    // 3. 下载图片文件到缓冲区
     logger.debug(`Downloading image for base64 conversion from gs://${bucketName}/${filePath}`);
     const [buffer] = await storage.bucket(bucketName).file(filePath).download();
     logger.debug(`Image downloaded successfully (${buffer.length} bytes)`);
 
-    // // 3. Determine image format using sharp to get the correct MIME type
-    // const imageSharp = sharp(buffer);
-    // const metadata = await imageSharp.metadata();
-    // const format = metadata.format; // e.g., 'jpeg', 'png', 'webp', etc.
-    // if (!format) {
-    //   throw new Error('Could not determine image format.');
-    // }
-    // const mimeType = `image/${format}`;
-
-    // 4. Convert buffer to base64 string
+    // 4. 将缓冲区转换为 base64 字符串
     const base64Data = buffer.toString('base64');
 
-    // 5. Construct the full data URI
-    // const dataUri = `data:${mimeType};base64,${base64Data}`;
-    const dataUri = `${base64Data}`;
-    return dataUri;
+    // 5. 返回 base64 数据（不包含 data URI 前缀）
+    return base64Data;
 
   } catch (error) {
     logger.error(`Error converting GCS URI ${gcsUri} to base64:`, error);
-    // Re-throw the error so the caller can handle it
+    // 重新抛出错误，让调用者处理
     throw error;
   }
 }
 
-
+/**
+ * 从 GCS URI 获取文件的 MIME 类型
+ * 
+ * @param gcsUri Google Cloud Storage URI
+ * @returns Promise 解析为 MIME 类型字符串或 null
+ */
 export async function getMimeTypeFromGCS(gcsUri: string): Promise<string | null> {
-  const [bucketName, ...pathSegments] = gcsUri.replace("gs://", "").split("/");
-  const fileName = pathSegments.join("/");
-  const [metadata] = await storage.bucket(bucketName).file(fileName).getMetadata();
-  return metadata.contentType || null;
+  try {
+    const [bucketName, ...pathSegments] = gcsUri.replace("gs://", "").split("/");
+    const fileName = pathSegments.join("/");
+    
+    // 修复：使用 getStorage() 获取 storage 实例
+    const storage = await getStorage();
+    
+    const [metadata] = await storage.bucket(bucketName).file(fileName).getMetadata();
+    
+    logger.debug('获取文件 MIME 类型成功', {
+      gcsUri,
+      bucketName,
+      fileName,
+      contentType: metadata.contentType
+    });
+    
+    return metadata.contentType || null;
+  } catch (error) {
+    logger.error(`Error getting MIME type from GCS URI ${gcsUri}:`, error);
+    throw error;
+  }
 }

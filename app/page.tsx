@@ -1,9 +1,11 @@
 'use client'
 
 import { Stepper } from "@/components/ui/stepper"
+import { useAuth } from '@/hooks/use-auth'
 import { useScenario } from '@/hooks/use-scenario'
 import { BookOpen, Film, LayoutGrid, Library, PenLine, Scissors } from 'lucide-react'
 import Image from 'next/image'
+import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { generateMusic } from "./actions/generate-music"
 import { generateScenario, generateStoryboard } from './actions/generate-scenes'
@@ -44,6 +46,9 @@ const validateDuration = (duration: number): number => {
 };
 
 export default function Home() {
+  // 🔐 认证状态检查
+  const { isAuthenticated, isLoading: authLoading, user } = useAuth()
+  
   const [pitch, setPitch] = useState('')
   const [name, setName] = useState('')
   const [style, setStyle] = useState('Photographic')
@@ -73,7 +78,7 @@ export default function Home() {
   const GCS_VIDEOS_STORAGE_URI = process.env.GCS_VIDEOS_STORAGE_URI;
 
   // Scenario auto-save functionality
-  const { saveScenarioDebounced, getCurrentScenarioId, setCurrentScenarioId, isAuthenticated } = useScenario()
+  const { saveScenarioDebounced, getCurrentScenarioId, setCurrentScenarioId } = useScenario()
 
   useEffect(() => {
     console.log("generatingScenes (in useEffect):", generatingScenes);
@@ -1034,6 +1039,85 @@ export default function Home() {
     });
   };
 
+  // 🔐 认证加载状态
+  if (authLoading) {
+    return (
+      <main className="container mx-auto p-8 min-h-screen bg-background flex flex-col items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">加载中...</p>
+        </div>
+      </main>
+    )
+  }
+
+  // 🔐 未登录状态 - 显示登录提示
+  if (!isAuthenticated) {
+    return (
+      <main className="container mx-auto p-8 min-h-screen bg-background flex flex-col">
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-2">
+            <Image
+              src="/logo5.png"
+              alt="Storycraft"
+              width={32}
+              height={32}
+              className="h-8"
+            />
+            <h1 className="text-3xl font-bold text-primary ml-[-10px]">
+              toryCraft
+            </h1>
+          </div>
+          <UserProfile isCollapsed={false} />
+        </div>
+        
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center max-w-md mx-auto">
+            <div className="mb-8">
+              <Film className="h-16 w-16 text-primary mx-auto mb-4" />
+              <h2 className="text-2xl font-bold mb-2">欢迎使用 StoryCraft</h2>
+              <p className="text-muted-foreground mb-6">
+                创建精彩的视频故事，让您的想象力变为现实。请先登录以开始使用所有功能。
+              </p>
+            </div>
+            
+            <div className="space-y-4">
+              <Link 
+                href="/sign-in"
+                className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2 w-full"
+              >
+                立即登录
+              </Link>
+              
+              <Link 
+                href="/sign-up"
+                className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2 w-full"
+              >
+                创建账户
+              </Link>
+            </div>
+            
+            <div className="mt-8 text-sm text-muted-foreground">
+              <p>✨ 生成精彩的视频故事</p>
+              <p>🎬 自定义角色和场景</p>
+              <p>🎵 添加音乐和配音</p>
+              <p>📱 导出高质量视频</p>
+            </div>
+          </div>
+        </div>
+        
+        <footer className="mt-auto pt-8">
+          <div className="flex items-center justify-center gap-2">
+            <p className="text-sm text-muted-foreground">
+              Made with ❤️ by @mblanc
+            </p>
+          </div>
+        </footer>
+      </main>
+    )
+  }
+
+  // 🔐 已登录状态 - 显示完整应用
   return (
     <main className="container mx-auto p-8 min-h-screen bg-background flex flex-col">
       <div className="flex items-center justify-between mb-8">

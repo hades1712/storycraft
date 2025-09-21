@@ -127,7 +127,8 @@ export function EditorTab({
     }
 
     // Calculate the scale factor to fit all scenes within the timeline
-    const totalSceneDuration = scenario.scenes.length * SCENE_DURATION
+    // 安全检查：确保 scenes 存在且不为 undefined
+    const totalSceneDuration = (scenario.scenes?.length || 0) * SCENE_DURATION
     const timeScale = TIMELINE_DURATION / totalSceneDuration
 
     const [layers, setLayers] = useState<TimelineLayer[]>([
@@ -135,7 +136,8 @@ export function EditorTab({
             id: 'videos',
             name: 'Videos',
             type: 'video',
-            items: scenario.scenes.map((scene, index) => ({
+            // 安全检查：确保 scenes 存在且不为 undefined
+            items: (scenario.scenes || []).map((scene, index) => ({
                 id: `video-${index}`,
                 startTime: index * SCENE_DURATION,
                 duration: SCENE_DURATION,
@@ -185,7 +187,8 @@ export function EditorTab({
             const voiceoverLayer = updatedLayers.find(layer => layer.id === 'voiceovers')
             const musicLayer = updatedLayers.find(layer => layer.id === 'music')
             
-            if (videoLayer) {
+            if (videoLayer && scenario.scenes) {
+                // 安全检查：确保 scenes 存在且不为 undefined
                 for (let i = 0; i < scenario.scenes.length; i++) {
                     const scene = scenario.scenes[i]
                     if (scene.videoUri) {
@@ -204,8 +207,9 @@ export function EditorTab({
                 }
             }
 
-            if (voiceoverLayer) {
+            if (voiceoverLayer && scenario.scenes) {
                 // Only add voiceover items if they exist in the scenario
+                // 安全检查：确保 scenes 存在且不为 undefined
                 const voiceoverItems: TimelineItem[] = []
                 for (let i = 0; i < scenario.scenes.length; i++) {
                     const scene = scenario.scenes[i]
@@ -1118,4 +1122,4 @@ export function EditorTab({
             />
         </div>
     )
-} 
+}

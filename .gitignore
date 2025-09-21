@@ -10,6 +10,9 @@
 
 # testing
 /coverage
+# GCP service account keys (sensitive credentials)
+veo-project-*.json
+*-service-account.json
 
 # next.js
 /.next/

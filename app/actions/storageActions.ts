@@ -45,6 +45,7 @@ export async function getDynamicImageUrl(gcsUri: string, download : boolean = fa
 }
 
 export async function uploadImageToGCS(base64: string): Promise<string | null> {
-  const gcsUri = await uploadImage(base64, uuidv4());
+  // 使用 .jpg 扩展名，因为 uploadImage 会转换为 JPEG 格式
+  const gcsUri = await uploadImage(base64, `${uuidv4()}.jpg`);
   return gcsUri;
 }

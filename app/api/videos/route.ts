@@ -3,7 +3,8 @@ import { videoPromptToString } from '@/lib/prompt-utils';
 import { generateSceneVideo, waitForOperation } from '@/lib/veo';
 import { Storage } from '@google-cloud/storage';
 import logger from '@/app/logger';
-import { getRAIUserMessage } from '@/lib/rai'
+import { getRAIUserMessage } from '@/lib/rai';
+import { auth } from '@/auth';
 
 
 const USE_COSMO = process.env.USE_COSMO === "true";
@@ -32,6 +33,17 @@ const placeholderVideoUrls916 = [
  *          with either a success flag and the generated video URLs or an error message.
  */
 export async function POST(req: Request): Promise<Response> {
+  // 🔐 认证检查：确保只有登录用户才能生成视频
+  const session = await auth();
+  if (!session?.user?.id) {
+    logger.warn('Unauthorized video generation attempt');
+    return Response.json(
+      { success: false, error: '请先登录后再生成视频' },
+      { status: 401 }
+    );
+  }
+
+  logger.info(`User ${session.user.id} is generating videos`);
 
   const { scenes, scenario, language, aspectRatio, model, generateAudio, durationSeconds }: {
     scenes: Array<Scene>

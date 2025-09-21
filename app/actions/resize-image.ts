@@ -31,7 +31,8 @@ export async function resizeImage(base64Image: string): Promise<string> {
 
     // resizedImageBuffer to base64
     const uuid = uuidv4()
-    const imageGcsUri = await uploadImage(resizedImageBuffer.toString('base64'), `upload-${uuid}.png`)
+    // 使用 .jpg 扩展名，因为 uploadImage 会转换为 JPEG 格式
+    const imageGcsUri = await uploadImage(resizedImageBuffer.toString('base64'), `upload-${uuid}.jpg`)
     if (!imageGcsUri) {
       throw new Error('Failed to upload image to GCS')
     }
@@ -187,7 +188,8 @@ export async function createCollage(
     .toBuffer();
 
   // Upload to GCS
-  const filename = `collage-${Date.now()}.png`;
+  // 使用 .jpg 扩展名，因为 uploadImage 会转换为 JPEG 格式
+  const filename = `collage-${Date.now()}.jpg`;
   const base64Collage = collageBuffer.toString('base64');
   const gcsUri = await uploadImage(base64Collage, filename);
   

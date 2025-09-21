@@ -18,31 +18,36 @@ const isDevelopment = process.env.NODE_ENV === 'development';
 
 export function GcsImage({ gcsUri, alt, className, fill = true, sizes }: GcsImageProps) {
   const { data: imageData, isLoading, error } = useQuery({
-    queryKey: ['image', gcsUri],
+    queryKey: ['gcs-image', gcsUri],
     queryFn: async () => {
-      console.log('GcsImage query ' + gcsUri)
-      if (!gcsUri) {
-        return null
-      }
-      if (!gcsUri.startsWith('gs://')) {
-        console.error('Invalid GCS URI format:', gcsUri)
-        return null
-      }
+      if (!gcsUri) return null;
       try {
-        const result = await getDynamicImageUrl(gcsUri)
-        return result
+        // 只在开发环境中输出调试日志
+        if (isDevelopment) {
+          console.log('Fetching image URL for:', gcsUri);
+        }
+        const result = await getDynamicImageUrl(gcsUri);
+        if (isDevelopment) {
+          console.log('Image URL result:', result);
+        }
+        return result;
       } catch (error) {
-        console.error('Error fetching image URL:', error)
-        throw error
+        // 只在开发环境中输出错误日志
+        if (isDevelopment) {
+          console.error('Error fetching image URL:', error);
+        }
+        // 返回一个错误状态而不是抛出异常，这样组件可以显示错误状态
+        return { url: null, mimeType: null, error: error instanceof Error ? error.message : 'Unknown error' };
       }
     },
     enabled: !!gcsUri,
-    staleTime: isDevelopment ? 0 : 60 * 1000 * 50, // 50 minutes in production
+    staleTime: 1000 * 60 * 50, // 50 minutes
+    retry: 2, // 重试2次
   })
 
   const imageUrl = imageData?.url || null
 
-  // Preload the image when we have the URL
+  // Preload the image to avoid layout shift
   useEffect(() => {
     if (imageUrl) {
       const img = new window.Image()
@@ -52,36 +57,30 @@ export function GcsImage({ gcsUri, alt, className, fill = true, sizes }: GcsImag
 
   if (isLoading) {
     return (
-      <div className={`relative w-full h-full bg-gray-100 ${className}`}>
-        <div className="absolute inset-0 bg-black/30 flex items-center justify-center z-10">
-          <Loader2 className="h-12 w-12 text-white animate-spin" />
-        </div>
-        <Image
-          src="/placeholder.svg"
-          alt={`Loading ${alt}`}
-          className={className}
-          fill={fill}
-          sizes={sizes}
-        />
+      <div className={`relative w-full h-full bg-gray-100 flex items-center justify-center ${className}`}>
+        <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
       </div>
     )
   }
 
-  if (!imageUrl) {
+  // 检查是否有错误或者没有图片URL
+  if (error || !imageUrl || (imageData && 'error' in imageData)) {
+    const errorMessage = error?.message || (imageData && 'error' in imageData ? imageData.error : 'Failed to load image');
+    // 只在开发环境中输出错误日志
+    if (isDevelopment) {
+      console.error('GcsImage error:', errorMessage);
+    }
+    
     return (
-      <div className={`relative w-full h-full bg-gray-100 ${className}`}>
-        <Image
-          src="/placeholder.svg"
-          alt={alt}
-          className={className}
-          fill={fill}
-          sizes={sizes}
-          onError={(e) => {
-            const target = e.target as HTMLImageElement
-            target.src = "/placeholder.svg"
-            target.onerror = null // Prevent infinite loop
-          }}
-        />
+      <div className={`relative w-full h-full bg-gray-100 flex items-center justify-center ${className}`}>
+        <div className="text-center p-4">
+          <div className="text-gray-400 text-sm mb-2">图片加载失败</div>
+          {isDevelopment && (
+            <div className="text-xs text-red-500 break-all">
+              {errorMessage}
+            </div>
+          )}
+        </div>
       </div>
     )
   }
@@ -103,4 +102,4 @@ export function GcsImage({ gcsUri, alt, className, fill = true, sizes }: GcsImag
       />
     </div>
   )
-} 
+}
