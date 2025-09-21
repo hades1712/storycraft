@@ -6,11 +6,10 @@ export async function middleware(request: NextRequest) {
 
   // 🔐 API路由认证检查
   if (pathname.startsWith('/api/')) {
-    // 不需要认证的API端点（公开端点）
+    // 公开API端点，无需认证
     const publicApiRoutes = [
-      '/api/auth',           // NextAuth相关端点
-      '/api/auth/providers-status', // 认证提供商状态检查
-      '/api/auth/register',  // 用户注册
+      '/api/auth',
+      '/api/health'
     ]
 
     // 检查是否是公开API端点
@@ -19,16 +18,60 @@ export async function middleware(request: NextRequest) {
     )
 
     if (!isPublicApi) {
-      // 对于需要认证的API端点，使用 NextAuth 的 JWT token 检查
-      // 这避免了在 Edge Runtime 中使用 Firestore
-      const token = await getToken({ 
-        req: request,
-        secret: process.env.NEXTAUTH_SECRET 
-      })
-      
-      if (!token?.sub) {
+      try {
+        // 对于需要认证的API端点，使用 NextAuth 的 JWT token 检查
+        // 这避免了在 Edge Runtime 中使用 Firestore
+        const token = await getToken({ 
+          req: request,
+          // 同时兼容 AUTH_SECRET 与 NEXTAUTH_SECRET，确保与 Auth.js v5 配置一致
+          secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET
+        })
+        
+        // 更详细的token验证
+        if (!token) {
+          console.log(`[Middleware] 未找到token，路径: ${pathname}`)
+          return NextResponse.json(
+            { 
+              error: '请先登录后再访问此功能',
+              code: 'NO_TOKEN',
+              path: pathname
+            },
+            { status: 401 }
+          )
+        }
+
+        // 检查token是否有效（包含必要的字段）
+        if (!token.sub && !token.googleUserId && !token.username) {
+          console.log(`[Middleware] Token无效，缺少用户标识，路径: ${pathname}`, token)
+          return NextResponse.json(
+            { 
+              error: '认证信息无效，请重新登录',
+              code: 'INVALID_TOKEN',
+              path: pathname
+            },
+            { status: 401 }
+          )
+        }
+
+        // 添加用户信息到请求头，供API路由使用
+        const requestHeaders = new Headers(request.headers)
+        requestHeaders.set('x-user-id', token.sub || token.googleUserId || token.username || '')
+        requestHeaders.set('x-user-provider', token.provider || 'unknown')
+
+        return NextResponse.next({
+          request: {
+            headers: requestHeaders,
+          },
+        })
+
+      } catch (error) {
+        console.error(`[Middleware] Token验证失败，路径: ${pathname}`, error)
         return NextResponse.json(
-          { error: '请先登录后再访问此功能' },
+          { 
+            error: '认证验证失败，请重新登录',
+            code: 'AUTH_ERROR',
+            path: pathname
+          },
           { status: 401 }
         )
       }

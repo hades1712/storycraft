@@ -3,7 +3,9 @@ import { v4 as uuidv4 } from 'uuid'
 import { uploadImage } from '@/lib/storage'
 import logger from '@/app/logger';
 
-const LOCATION = process.env.LOCATION
+// 在第6行修改
+// 为LOCATION设置默认值，与terraform保持一致
+const LOCATION = process.env.LOCATION || "us-central1"
 const PROJECT_ID = process.env.PROJECT_ID
 
 const ai = new GoogleGenAI({ vertexai: true, project: PROJECT_ID, location: LOCATION });

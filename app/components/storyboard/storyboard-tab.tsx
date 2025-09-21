@@ -401,7 +401,10 @@ export function StoryboardTab({
         }
         return (
           <div className="relative max-w-4xl mx-auto">
-            <div className="aspect-video relative bg-black rounded-lg overflow-hidden max-h-[60vh] group">
+            <div className={cn(
+              "aspect-video relative bg-black rounded-lg overflow-hidden max-h-[60vh] group",
+              scenario.aspectRatio === '9:16' ? 'aspect-[9/16]' : 'aspect-video'
+            )}>
               {displayMode === 'video' && scenes[currentSlide].videoUri ? (
                 <div className="absolute inset-0">
                   <VideoPlayer videoGcsUri={scenes[currentSlide].videoUri} aspectRatio={scenario.aspectRatio} />
@@ -588,4 +591,4 @@ export function StoryboardTab({
       )}
     </div>
   )
-} 
+}

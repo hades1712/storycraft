@@ -79,7 +79,11 @@ export function SceneData({
       onDrop={onDrop}
     >
       <div className="flex flex-col">
-        <div className="relative w-full aspect-[11/6] overflow-hidden group">
+        {/* 根据场景期望纵横比动态设置容器比例，避免与子组件 VideoPlayer 的比例不一致导致留黑或裁切 */}
+        <div className={cn(
+          "relative w-full overflow-hidden group",
+          scenario.aspectRatio === '9:16' ? 'aspect-[9/16]' : 'aspect-video'
+        )}>
           {isGenerating && (
             <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-10">
               <Loader2 className="h-8 w-8 text-white animate-spin" />

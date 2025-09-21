@@ -1,15 +1,19 @@
 import { useCallback, useRef } from 'react'
 import { useAuth } from './use-auth'
+import { useToast } from './use-toast'
 import type { Scenario } from '@/app/types'
 
 export function useScenario() {
-  const { session } = useAuth()
+  const { session, isValidAuth, authError } = useAuth()
+  const { handleApiError, showSuccess } = useToast()
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const currentScenarioIdRef = useRef<string | null>(null)
 
   const saveScenario = useCallback(async (scenario: Scenario, scenarioId?: string) => {
     if (!session?.user?.id) {
-      console.warn('Cannot save scenario: user not authenticated')
+      const errorMsg = 'Cannot save scenario: user not authenticated'
+      console.warn(errorMsg)
+      handleApiError(new Error(errorMsg), '保存场景失败')
       return null
     }
 
@@ -36,30 +40,53 @@ export function useScenario() {
         currentScenarioIdRef.current = result.scenarioId
       }
 
+      showSuccess('场景保存成功', `场景"${scenario.name}"已成功保存`)
       return result.scenarioId
     } catch (error) {
       console.error('Error saving scenario:', error)
+      handleApiError(error, '保存场景失败')
       throw error
     }
-  }, [session?.user?.id])
+  }, [session?.user?.id, handleApiError, showSuccess])
 
-  const saveScenarioDebounced = useCallback((scenario: Scenario, scenarioId?: string) => {
-    // Clear existing timeout
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current)
-    }
+  // 防抖保存函数 - 优化版本
+  const saveScenarioDebounced = useCallback(
+    (scenario: Scenario) => {
+      // 检查是否需要保存（避免不必要的API调用）
+      if (!scenario || !scenario.name?.trim()) {
+        console.log('[useScenario] 跳过保存：场景为空或名称为空')
+        return
+      }
 
-    // Set new timeout for debounced save
-    saveTimeoutRef.current = setTimeout(() => {
-      saveScenario(scenario, scenarioId).catch(error => {
-        console.error('Debounced save failed:', error)
-      })
-    }, 1000) // Wait 1 second after last change before saving
-  }, [saveScenario])
+      // 检查认证状态
+      if (!session?.user?.id) {
+        console.log('[useScenario] 跳过保存：用户未认证')
+        return
+      }
+
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current)
+      }
+      
+      saveTimeoutRef.current = setTimeout(async () => {
+        try {
+          console.log('[useScenario] 开始防抖保存场景:', scenario.name)
+          await saveScenario(scenario)
+          console.log('[useScenario] 防抖保存成功')
+        } catch (error) {
+          console.error('[useScenario] 防抖保存失败:', error)
+          handleApiError(error, '场景自动保存失败')
+        }
+      }, 2000) // 增加到2秒防抖，减少频繁保存
+    },
+    [saveScenario, session?.user?.id]
+  )
 
   const loadScenario = useCallback(async (scenarioId: string): Promise<Scenario | null> => {
     if (!session?.user?.id) {
-      console.warn('Cannot load scenario: user not authenticated')
+      const errorMsg = 'Cannot load scenario: user not authenticated'
+      console.warn(errorMsg)
+      handleApiError(new Error(errorMsg), '加载场景失败')
       return null
     }
 
@@ -81,13 +108,16 @@ export function useScenario() {
       return scenarioData
     } catch (error) {
       console.error('Error loading scenario:', error)
+      handleApiError(error, '加载场景失败')
       throw error
     }
-  }, [session?.user?.id])
+  }, [session?.user?.id, handleApiError])
 
   const loadUserScenarios = useCallback(async () => {
     if (!session?.user?.id) {
-      console.warn('Cannot load scenarios: user not authenticated')
+      const errorMsg = 'Cannot load scenarios: user not authenticated'
+      console.warn(errorMsg)
+      handleApiError(new Error(errorMsg), '加载场景列表失败')
       return []
     }
 
@@ -102,9 +132,10 @@ export function useScenario() {
       return result.scenarios || []
     } catch (error) {
       console.error('Error loading user scenarios:', error)
+      handleApiError(error, '加载场景列表失败')
       throw error
     }
-  }, [session?.user?.id])
+  }, [session?.user?.id, handleApiError])
 
   const getCurrentScenarioId = useCallback(() => {
     return currentScenarioIdRef.current
@@ -121,6 +152,7 @@ export function useScenario() {
     loadUserScenarios,
     getCurrentScenarioId,
     setCurrentScenarioId,
-    isAuthenticated: !!session?.user?.id
+    isAuthenticated: !!session?.user?.id,
+    isValidAuth
   }
 }

@@ -39,6 +39,8 @@ export async function POST(request: NextRequest) {
         email: userEmail,
         displayName,
         photoURL,
+        provider: 'google', // 使用 Google 认证提供商
+        isActive: true,     // 新用户默认激活
         createdAt: Timestamp.now(),
       }
 
@@ -84,4 +86,4 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     )
   }
-} 
+}

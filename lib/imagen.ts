@@ -2,9 +2,17 @@ import { GoogleAuth } from 'google-auth-library'
 import logger from '@/app/logger';
 
 
-const LOCATION = process.env.LOCATION
+// 在第5行修改
+// 为LOCATION设置默认值，与terraform保持一致
+const LOCATION = process.env.LOCATION || "us-central1"
 const PROJECT_ID = process.env.PROJECT_ID
-const GCS_VIDEOS_STORAGE_URI = process.env.GCS_VIDEOS_STORAGE_URI
+
+// 从环境变量获取统一的 GCS 存储桶名称
+const GCS_BUCKET_NAME = process.env.GCS_BUCKET_NAME || 'storycraft-videos';
+
+// 构建图片存储 URI
+const GCS_IMAGES_STORAGE_URI = `gs://${GCS_BUCKET_NAME}/images/`;
+
 const MODEL = 'imagen-4.0-generate-001'
 const MODEL_EDIT = 'imagen-3.0-capability-001'
 
@@ -62,7 +70,7 @@ export async function generateImageRest(prompt: string, aspectRatio?: string, en
               sampleCount: 1,
               aspectRatio: aspectRatio ? aspectRatio : "16:9",
               includeRaiReason: true,
-              storageUri: GCS_VIDEOS_STORAGE_URI,
+              storageUri: GCS_IMAGES_STORAGE_URI,
               enhancePrompt: enhancePrompt !== undefined ? enhancePrompt : false,
               language: 'auto',
               // seed: 1005,

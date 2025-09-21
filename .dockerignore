@@ -19,3 +19,6 @@ LICENSE
 # ignore any ipynb and py files
 **/*.ipynb
 **/*.ipynb_checkpoints
+# GCP service account keys (sensitive credentials)
+veo-project-*.json
+*-service-account.json

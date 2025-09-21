@@ -110,18 +110,37 @@ export class UserService {
      */
     static async findUserByUsername(username: string): Promise<FirestoreUser | null> {
         try {
-            const userDoc = await firestore.collection(this.USERS_COLLECTION).doc(username).get()  // 修改：db 改为 firestore
+            console.log('正在查找用户:', { username, collection: this.USERS_COLLECTION })
+            
+            const userDoc = await firestore.collection(this.USERS_COLLECTION).doc(username).get()
+            
+            console.log('用户文档查询结果:', { 
+                exists: userDoc.exists, 
+                id: userDoc.id,
+                hasData: !!userDoc.data()
+            })
+            
             if (!userDoc.exists) {
+                console.log('用户不存在:', username)
                 return null
             }
+            
             const userData = userDoc.data() as Omit<FirestoreUser, 'id'>
-            return {
+            const user = {
                 id: username,  // 添加ID字段
                 ...userData
             } as FirestoreUser
+            
+            console.log('成功找到用户:', { username, hasPasswordHash: !!user.passwordHash })
+            return user
         } catch (error) {
-            console.error('查找用户失败:', error)
-            return null
+            console.error('查找用户失败:', {
+                username,
+                error: error instanceof Error ? error.message : error,
+                stack: error instanceof Error ? error.stack : undefined
+            })
+            // 重新抛出错误，让调用者知道发生了什么
+            throw error
         }
     }
 
@@ -203,7 +222,16 @@ export class UserService {
      * @returns 是否可用
      */
     static async isUsernameAvailable(username: string): Promise<boolean> {
-        const user = await this.findUserByUsername(username)
-        return user === null
+        try {
+            const user = await this.findUserByUsername(username)
+            return user === null
+        } catch (error) {
+            console.error('检查用户名可用性失败:', {
+                username,
+                error: error instanceof Error ? error.message : error
+            })
+            // 如果无法连接到数据库，抛出错误让调用者知道
+            throw new Error('无法连接到数据库，请稍后重试')
+        }
     }
 }

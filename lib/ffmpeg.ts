@@ -9,7 +9,15 @@ import { Readable, Writable } from 'stream';
 import { spawn } from 'child_process'; // For running ffprobe against a buffer
 import logger from '@/app/logger';
 
-const GCS_VIDEOS_STORAGE_URI = process.env.GCS_VIDEOS_STORAGE_URI || '';
+const GCS_BUCKET_NAME = process.env.GCS_BUCKET_NAME || 'storycraft-videos';
+
+const GCS_PATHS = {
+  VIDEOS: 'videos/',
+  AUDIO: 'audio/',
+  IMAGES: 'images/'
+} as const;
+
+const GCS_VIDEOS_STORAGE_URI = `gs://${GCS_BUCKET_NAME}/${GCS_PATHS.VIDEOS}`;
 
 const MOOD_MUSIC: { [key: string]: string } = {
   'Angry': '[Angry] Drop and Roll - Silent Partner.mp3',
@@ -647,8 +655,8 @@ export async function exportMovie(
 
     // Upload video to GCS
     logger.debug(`Upload result to GCS`);
-    const bucketName = GCS_VIDEOS_STORAGE_URI.replace("gs://", "").split("/")[0];
-    const destinationPath = path.join(GCS_VIDEOS_STORAGE_URI.replace(`gs://${bucketName}/`, ''), outputFileName);
+    const bucketName = GCS_BUCKET_NAME;
+    const destinationPath = path.join(GCS_PATHS.VIDEOS, outputFileName);
     const bucket = storage.bucket(bucketName);
 
     await bucket
@@ -664,7 +672,7 @@ export async function exportMovie(
 
     // if (voiceoverLayer) {
     //   // Upload VTT file to GCS
-    //   const vttDestinationPath = path.join(GCS_VIDEOS_STORAGE_URI.replace(`gs://${bucketName}/`, ''), vttFileName);
+    //   const vttDestinationPath = path.join(GCS_PATHS.VIDEOS, vttFileName);
     //   await bucket
     //     .upload(path.join(publicDir, vttFileName), {
     //       destination: vttDestinationPath,

@@ -9,8 +9,7 @@ const registerSchema = z.object({
         .max(20, "用户名最多20位")
         .regex(/^[a-zA-Z0-9_]+$/, "用户名只能包含字母、数字和下划线"),
     password: z.string()
-        .min(8, "密码至少8位")
-        .regex(/^(?=.*[A-Za-z])(?=.*\d)/, "密码必须包含字母和数字"),
+        .min(1, "请输入密码"),
     confirmPassword: z.string(),
     secret: z.string()
         .min(6, "注册密钥至少6位")
@@ -116,11 +115,25 @@ export async function GET(request: NextRequest) {
             )
         }
 
-        // 验证用户名格式
-        if (!/^[a-zA-Z0-9_]{3,20}$/.test(username)) {
+        // 验证用户名格式（与POST方法保持一致）
+        if (username.length < 3) {
             return NextResponse.json({
                 available: false,
-                message: "用户名格式不正确"
+                message: "用户名至少3位"
+            })
+        }
+        
+        if (username.length > 20) {
+            return NextResponse.json({
+                available: false,
+                message: "用户名最多20位"
+            })
+        }
+        
+        if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+            return NextResponse.json({
+                available: false,
+                message: "用户名只能包含字母、数字和下划线"
             })
         }
 

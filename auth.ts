@@ -5,16 +5,15 @@ import Credentials from "next-auth/providers/credentials"
 import { UserService } from "./lib/user-service"
 import { z } from "zod"
 
-// 验证必需的环境变量
-if (!process.env.NEXTAUTH_SECRET) {
-    throw new Error('NEXTAUTH_SECRET 环境变量未设置')
+if (process.env.NODE_ENV === 'production' && !process.env.NEXTAUTH_SECRET) {
+  throw new Error('NEXTAUTH_SECRET is required in production')
 }
 
 if (!process.env.AUTH_GOOGLE_ID || !process.env.AUTH_GOOGLE_SECRET) {
-    console.warn('Google OAuth 环境变量未设置，Google 登录将不可用')
+  // 可选：仅提示，不阻断启动
+  // console.warn('Google OAuth not fully configured, only credentials login will be available.')
 }
 
-// 登录表单验证 schema
 const loginSchema = z.object({
     username: z.string().min(3, "用户名至少3位").max(20, "用户名最多20位"),
     password: z.string().min(8, "密码至少8位")
@@ -25,26 +24,53 @@ export const authConfig = {
     pages: {
         signIn: "/sign-in",
     },
+    // 在反向代理/Cloud Run 等场景下，信任 X-Forwarded-* 头，确保生成正确的回调与 Cookie 域
+    trustHost: true,
+    // 明确使用 JWT 会话，避免数据库会话导致的 Cookie 行为差异
+    session: {
+        strategy: 'jwt',
+    },
+    // 显式设置会话 Cookie（v5 默认名为 authjs.session-token）
+    // 这里不设置 domain，保持 host-only，确保在代理域名下也能被发送
+    cookies: {
+        sessionToken: {
+            name: 'authjs.session-token',
+            options: {
+                httpOnly: true,
+                sameSite: 'lax',
+                path: '/',
+                secure: true,
+            },
+        },
+    },
     callbacks: {
         // 授权回调 - 控制页面访问权限
         authorized({ auth, request: { nextUrl } }) {
             const isLoggedIn = !!auth?.user
             const isOnSignIn = nextUrl.pathname.startsWith("/sign-in")
+            const isOnSignUp = nextUrl.pathname.startsWith("/sign-up")
+            
+            // 公共路径 - 不需要认证的页面
+            const publicPaths = ["/sign-in", "/sign-up", "/api/auth"]
+            const isPublicPath = publicPaths.some(path => nextUrl.pathname.startsWith(path))
 
+            // 已登录用户的处理
             if (isLoggedIn) {
-                if (isOnSignIn) {
-                    // 已登录用户访问登录页面，重定向到首页
-                    return Response.redirect(new URL("/", nextUrl))
+                if (isOnSignIn || isOnSignUp) {
+                    // 已登录用户访问登录/注册页面，重定向到首页
+                    return Response.redirect(new URL("/", nextUrl.origin))
                 }
+                // 已登录用户可以访问所有其他页面
                 return true
             }
 
-            if (isOnSignIn) {
-                // 未登录用户可以访问登录页面
+            // 未登录用户的处理
+            if (isPublicPath) {
+                // 未登录用户可以访问公共页面（登录、注册、认证API）
                 return true
             }
 
-            // 未登录用户访问其他页面，重定向到登录页面
+            // 未登录用户访问受保护页面，重定向到登录页面
             return false
         },
         
@@ -115,7 +141,6 @@ export const authConfig = {
             })
         ] : []),
         
-        // 用户名密码提供商
         Credentials({
             name: "credentials",
             credentials: {
@@ -131,31 +156,21 @@ export const authConfig = {
                 }
             },
             async authorize(credentials) {
-                try {
-                    // 1. 验证输入格式
-                    const validatedFields = loginSchema.safeParse(credentials)
-                    if (!validatedFields.success) {
-                        console.error('登录表单验证失败:', validatedFields.error.flatten().fieldErrors)
-                        return null
-                    }
-
-                    const { username, password } = validatedFields.data
-
-                    // 2. 验证用户凭据
-                    const user = await UserService.authenticateUser({ username, password })
-                    
-                    // 3. 返回用户信息（NextAuth 需要的格式）
-                    return {
-                        id: username,
-                        name: user.displayName,
-                        email: user.email || null,
-                        image: user.photoURL || null,
-                        username: username,
-                        provider: 'credentials'
-                    }
-                } catch (error) {
-                    console.error('用户认证失败:', error)
+                const parsed = loginSchema.safeParse(credentials)
+                if (!parsed.success) {
                     return null
+                }
+                const { username, password } = parsed.data
+                // 使用实际存在的用户认证服务方法
+                const user = await UserService.authenticateUser({ username, password })
+                if (!user) return null
+                // 返回包含 username 与 provider，用于后续 JWT/Session 回调
+                return {
+                    id: user.id ?? username,
+                    name: user.displayName ?? username,
+                    username,
+                    provider: 'credentials' as const,
+                    image: (user as any).photoURL ?? undefined,
                 }
             }
         })

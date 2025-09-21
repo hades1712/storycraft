@@ -6,8 +6,14 @@ import { v4 as uuidv4 } from 'uuid';
 import { concatenateMusicWithFade } from './ffmpeg';
 import logger from '@/app/logger';
 
-const GCS_VIDEOS_STORAGE_URI = process.env.GCS_VIDEOS_STORAGE_URI || '';
-const LOCATION = process.env.LOCATION
+// 从环境变量获取统一的 GCS 存储桶名称
+const GCS_BUCKET_NAME = process.env.GCS_BUCKET_NAME || 'storycraft-videos';
+
+// 音频文件存储路径
+const AUDIO_PATH = 'audio/';
+// 在第14行修改
+// 为LOCATION设置默认值，与terraform保持一致
+const LOCATION = process.env.LOCATION || "us-central1"
 const PROJECT_ID = process.env.PROJECT_ID
 const MODEL = 'lyria-002'
 
@@ -82,10 +88,10 @@ export async function generateMusicRest(prompt: string): Promise<string> {
 
       // Return the relative file path (for serving the file)
       let musicUrl: string;
-      // Upload to GCS
-      logger.debug(`Upload result to GCS`);
-      const bucketName = GCS_VIDEOS_STORAGE_URI.replace("gs://", "").split("/")[0];
-      const destinationPath = path.join(GCS_VIDEOS_STORAGE_URI.replace(`gs://${bucketName}/`, ''), fileName);
+      // Upload music to GCS
+      logger.debug(`Upload music result to GCS`);
+      const bucketName = GCS_BUCKET_NAME;
+      const destinationPath = path.join(AUDIO_PATH, fileName);
       const bucket = storage.bucket(bucketName);
       const file = bucket.file(destinationPath);
 

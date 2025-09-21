@@ -5,7 +5,11 @@ import * as path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import logger from '@/app/logger';
 
-const GCS_VIDEOS_STORAGE_URI = process.env.GCS_VIDEOS_STORAGE_URI || '';
+// 从环境变量获取统一的 GCS 存储桶名称
+const GCS_BUCKET_NAME = process.env.GCS_BUCKET_NAME || 'storycraft-videos';
+
+// 音频文件存储路径
+const AUDIO_PATH = 'audio/';
 
 const storage = new Storage();
 
@@ -81,10 +85,10 @@ export async function tts(text: string, language: string, voiceName?: string): P
 
     // Return the relative file path (for serving the file)
     let voiceoverUrl: string;
-    // Upload video to GCS
-    logger.debug(`Upload result to GCS`);
-    const bucketName = GCS_VIDEOS_STORAGE_URI.replace("gs://", "").split("/")[0];
-    const destinationPath = path.join(GCS_VIDEOS_STORAGE_URI.replace(`gs://${bucketName}/`, ''), fileName);
+    // Upload audio to GCS
+    logger.debug(`Upload audio result to GCS`);
+    const bucketName = GCS_BUCKET_NAME;
+    const destinationPath = path.join(AUDIO_PATH, fileName);
     const bucket = storage.bucket(bucketName);
     const file = bucket.file(destinationPath);
 

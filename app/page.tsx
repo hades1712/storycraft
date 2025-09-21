@@ -75,8 +75,6 @@ export default function Home() {
   const [isGeneratingVoiceover, setIsGeneratingVoiceover] = useState(false)
   const [selectedVoice, setSelectedVoice] = useState<Voice | null>(null)
 
-  const GCS_VIDEOS_STORAGE_URI = process.env.GCS_VIDEOS_STORAGE_URI;
-
   // Scenario auto-save functionality
   const { saveScenarioDebounced, getCurrentScenarioId, setCurrentScenarioId } = useScenario()
 
@@ -92,9 +90,9 @@ export default function Home() {
   useEffect(() => {
     if (scenario && isAuthenticated) {
       console.log('Auto-saving scenario to Firestore...')
-      saveScenarioDebounced(scenario, getCurrentScenarioId() || undefined)
+      saveScenarioDebounced(scenario)
     }
-  }, [scenario, isAuthenticated, saveScenarioDebounced, getCurrentScenarioId])
+  }, [scenario, isAuthenticated, saveScenarioDebounced])
 
   const handleGenerate = async (modelName: string = 'gemini-2.5-flash', thinkingBudget: number = 0) => {
     if (pitch.trim() === '' || numScenes < 1) return
@@ -314,13 +312,31 @@ export default function Home() {
     const regeneratedScenes = await Promise.all(
       scenario.scenes.map(async (scene) => {
         try {
+          // 创建AbortController用于超时控制
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 6 * 60 * 1000); // 6分钟超时
+
           const response = await fetch('/api/videos', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ scenes: [scene], scenario: scenario, language: scenario?.language, aspectRatio: scenario?.aspectRatio, model, generateAudio, durationSeconds: scenario?.durationSeconds }),
+            signal: controller.signal,
           });
 
+          clearTimeout(timeoutId);
+
+          // 更稳健的响应处理：先检查是否为 JSON，再解析并校验 response.ok
+          const contentTypeAll = response.headers.get('content-type') || '';
+          if (!contentTypeAll.includes('application/json')) {
+            const text = await response.text().catch(() => '');
+            throw new Error(`请求 /api/videos 失败: ${response.status} ${response.statusText}. 服务器返回非 JSON 响应: ${text.slice(0, 200)}`);
+          }
+
           const { success, videoUrls, error } = await response.json();
+
+          if (!response.ok || !success) {
+            throw new Error(error || `请求 /api/videos 失败: ${response.status} ${response.statusText}`);
+          }
 
           if (success) {
             return { ...scene, videoUri: videoUrls[0] || undefined };
@@ -329,10 +345,17 @@ export default function Home() {
           }
         } catch (error) {
           console.error("Error regenerating video:", error);
+          let errorMessage = "生成视频时发生未知错误";
+          
           if (error instanceof Error) {
-            return { ...scene, videoUri: undefined, errorMessage: error.message };
+            if (error.name === 'AbortError') {
+              errorMessage = "视频生成超时，请稍后重试";
+            } else {
+              errorMessage = error.message;
+            }
+            return { ...scene, videoUri: undefined, errorMessage };
           } else {
-            return { ...scene, videoUri: undefined };
+            return { ...scene, videoUri: undefined, errorMessage };
           }
         }
       })
@@ -434,13 +457,31 @@ export default function Home() {
       const scene = scenario.scenes[index];
       console.log('scene', scene);
 
+      // 创建AbortController用于超时控制
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 6 * 60 * 1000); // 6分钟超时
+
       const response = await fetch('/api/videos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ scenes: [scene], scenario: scenario, language: scenario?.language, aspectRatio: scenario?.aspectRatio, durationSeconds: scenario?.durationSeconds }),
+        signal: controller.signal,
       });
 
+      clearTimeout(timeoutId);
+
+      // 更稳健的响应处理：先检查是否为 JSON，再解析并校验 response.ok
+      const contentType = response.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        const text = await response.text().catch(() => '');
+        throw new Error(`请求 /api/videos 失败: ${response.status} ${response.statusText}. 服务器返回非 JSON 响应: ${text.slice(0, 200)}`);
+      }
+
       const { success, videoUrls, error } = await response.json();
+
+      if (!response.ok || !success) {
+        throw new Error(error || `请求 /api/videos 失败: ${response.status} ${response.statusText}`);
+      }
 
       if (success) {
         const videoUri = success ? videoUrls[0] : undefined;
@@ -462,11 +503,17 @@ export default function Home() {
       }
     } catch (error) {
       console.error("[Client] Error generating video:", error);
-      setErrorMessage(
-        error instanceof Error
-          ? error.message
-          : "An unknown error occurred while generating video"
-      );
+      let errorMessage = "生成视频时发生未知错误";
+      
+      if (error instanceof Error) {
+        if (error.name === 'AbortError') {
+          errorMessage = "视频生成超时，请稍后重试";
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
+      setErrorMessage(errorMessage);
 
       // Use state updater function to work with current state
       setScenario(currentScenario => {

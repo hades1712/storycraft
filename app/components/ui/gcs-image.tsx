@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query"
 import Image from 'next/image'
 import { getDynamicImageUrl } from "@/app/actions/storageActions"
 import { Loader2 } from 'lucide-react'
-import { useEffect } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 interface GcsImageProps {
   gcsUri: string | null
@@ -17,12 +17,14 @@ interface GcsImageProps {
 const isDevelopment = process.env.NODE_ENV === 'development';
 
 export function GcsImage({ gcsUri, alt, className, fill = true, sizes }: GcsImageProps) {
-  const { data: imageData, isLoading, error } = useQuery({
+  const [forcedUrl, setForcedUrl] = useState<string | null>(null);
+  const hasForcedOnce = useRef(false); // 防止无限强制刷新
+
+  const { data: imageData, isLoading, error, refetch } = useQuery({
     queryKey: ['gcs-image', gcsUri],
     queryFn: async () => {
       if (!gcsUri) return null;
       try {
-        // 只在开发环境中输出调试日志
         if (isDevelopment) {
           console.log('Fetching image URL for:', gcsUri);
         }
@@ -32,20 +34,18 @@ export function GcsImage({ gcsUri, alt, className, fill = true, sizes }: GcsImag
         }
         return result;
       } catch (error) {
-        // 只在开发环境中输出错误日志
         if (isDevelopment) {
           console.error('Error fetching image URL:', error);
         }
-        // 返回一个错误状态而不是抛出异常，这样组件可以显示错误状态
         return { url: null, mimeType: null, error: error instanceof Error ? error.message : 'Unknown error' };
       }
     },
     enabled: !!gcsUri,
     staleTime: 1000 * 60 * 50, // 50 minutes
-    retry: 2, // 重试2次
+    retry: 2,
   })
 
-  const imageUrl = imageData?.url || null
+  const imageUrl = forcedUrl || imageData?.url || null
 
   // Preload the image to avoid layout shift
   useEffect(() => {
@@ -54,6 +54,34 @@ export function GcsImage({ gcsUri, alt, className, fill = true, sizes }: GcsImag
       img.src = imageUrl
     }
   }, [imageUrl])
+
+  // 当检测到加载失败时，尝试强制刷新一次签名URL
+  const handleImageError = async (e: any) => {
+    const target = e.target as HTMLImageElement;
+    if (!gcsUri) return;
+
+    // 仅强制刷新一次，避免循环
+    if (!hasForcedOnce.current) {
+      hasForcedOnce.current = true;
+      try {
+        const refreshed = await getDynamicImageUrl(gcsUri, false, { forceRefresh: true });
+        if (refreshed?.url) {
+          setForcedUrl(refreshed.url);
+          // 重新尝试加载
+          target.src = refreshed.url;
+          return;
+        }
+      } catch (err) {
+        if (isDevelopment) {
+          console.error('Force refresh image URL failed:', err);
+        }
+      }
+    }
+
+    // 兜底占位符
+    target.src = "/placeholder.svg";
+    target.onerror = null; // 防止无限循环
+  };
 
   if (isLoading) {
     return (
@@ -65,12 +93,10 @@ export function GcsImage({ gcsUri, alt, className, fill = true, sizes }: GcsImag
 
   // 检查是否有错误或者没有图片URL
   if (error || !imageUrl || (imageData && 'error' in imageData)) {
-    const errorMessage = error?.message || (imageData && 'error' in imageData ? imageData.error : 'Failed to load image');
-    // 只在开发环境中输出错误日志
+    const errorMessage = (error as any)?.message || (imageData && 'error' in imageData ? (imageData as any).error : 'Failed to load image');
     if (isDevelopment) {
       console.error('GcsImage error:', errorMessage);
     }
-    
     return (
       <div className={`relative w-full h-full bg-gray-100 flex items-center justify-center ${className}`}>
         <div className="text-center p-4">
@@ -94,11 +120,7 @@ export function GcsImage({ gcsUri, alt, className, fill = true, sizes }: GcsImag
         fill={fill}
         sizes={sizes}
         priority
-        onError={(e) => {
-          const target = e.target as HTMLImageElement
-          target.src = "/placeholder.svg"
-          target.onerror = null // Prevent infinite loop
-        }}
+        onError={handleImageError}
       />
     </div>
   )

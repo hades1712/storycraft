@@ -1,27 +1,29 @@
 import { Language, Scene, Scenario } from '@/app/types';
 import { videoPromptToString } from '@/lib/prompt-utils';
 import { generateSceneVideo, waitForOperation } from '@/lib/veo';
-import { Storage } from '@google-cloud/storage';
 import logger from '@/app/logger';
 import { getRAIUserMessage } from '@/lib/rai';
 import { auth } from '@/auth';
 
 
 const USE_COSMO = process.env.USE_COSMO === "true";
-const GCS_VIDEOS_STORAGE_URI = process.env.GCS_VIDEOS_STORAGE_URI;
 
+// 从环境变量获取统一的 GCS 存储桶名称
+const GCS_BUCKET_NAME = process.env.GCS_BUCKET_NAME || 'storycraft-videos';
+
+// 构建占位符视频 URL
 const placeholderVideoUrls = [
-  `${GCS_VIDEOS_STORAGE_URI}cosmo.mp4`,
-  `${GCS_VIDEOS_STORAGE_URI}dogs1.mp4`,
-  `${GCS_VIDEOS_STORAGE_URI}dogs2.mp4`,
-  `${GCS_VIDEOS_STORAGE_URI}cats1.mp4`,
+  `gs://${GCS_BUCKET_NAME}/videos/cosmo.mp4`,
+  `gs://${GCS_BUCKET_NAME}/videos/dogs1.mp4`,
+  `gs://${GCS_BUCKET_NAME}/videos/dogs2.mp4`,
+  `gs://${GCS_BUCKET_NAME}/videos/cats1.mp4`,
 ];
 
 const placeholderVideoUrls916 = [
-  //`${GCS_VIDEOS_STORAGE_URI}cat_1_9_16.mp4`,
-  `${GCS_VIDEOS_STORAGE_URI}cat_2_9_16.mp4`,
-  `${GCS_VIDEOS_STORAGE_URI}dog_9_16.mp4`,
-  `${GCS_VIDEOS_STORAGE_URI}dog_2_9_16.mp4`,
+  //`gs://${GCS_BUCKET_NAME}/videos/cat_1_9_16.mp4`,
+  `gs://${GCS_BUCKET_NAME}/videos/cat_2_9_16.mp4`,
+  `gs://${GCS_BUCKET_NAME}/videos/dog_9_16.mp4`,
+  `gs://${GCS_BUCKET_NAME}/videos/dog_2_9_16.mp4`,
 ];
 
 /**
@@ -55,36 +57,45 @@ export async function POST(req: Request): Promise<Response> {
     durationSeconds?: number
   } = await req.json();
 
-
-
   try {
     logger.debug('Generating videos in parallel...');
     logger.debug(`scenes: ${scenes}`);
     logger.debug(`durationSeconds: ${durationSeconds}`);
-    const storage = new Storage();
 
     const videoGenerationTasks = scenes
       .filter(scene => scene.imageGcsUri)
       .map(async (scene, index) => {
         logger.debug(`Starting video generation for scene ${index + 1}`);
         let url: string;
+
+        // 根据请求参数决定视频纵横比：仅在请求为 9:16 时使用竖屏，其他情况一律 16:9。
+        const requestedAspectRatio: '9:16' | '16:9' = aspectRatio === '9:16' ? '9:16' : '16:9';
+
         if (USE_COSMO) {
-          // randomize the placeholder video urls
-          logger.debug(`aspectRatio: ${aspectRatio}`);
-          if (aspectRatio === "9:16") {
+          // 占位符视频按请求纵横比选择
+          logger.debug(`requested aspectRatio: ${requestedAspectRatio}`);
+          if (requestedAspectRatio === '9:16') {
             url = placeholderVideoUrls916[Math.floor(Math.random() * placeholderVideoUrls916.length)];
           } else {
             url = placeholderVideoUrls[Math.floor(Math.random() * placeholderVideoUrls.length)];
           }
         } else {
+          // 实际生成视频，将请求的纵横比直接传入生成函数
           const promptString = typeof scene.videoPrompt === 'string' ? scene.videoPrompt : videoPromptToString(scene.videoPrompt, scenario);
-          logger.debug(promptString)
-          const operationName = await generateSceneVideo(promptString, scene.imageGcsUri!, aspectRatio, model || "veo-3.0-generate-001", generateAudio !== false, durationSeconds);
+          logger.debug(promptString);
+          const operationName = await generateSceneVideo(
+            promptString,
+            scene.imageGcsUri!,
+            requestedAspectRatio,
+            model || "veo-3.0-generate-001",
+            generateAudio !== false,
+            durationSeconds
+          );
           logger.debug(`Operation started for scene ${index + 1}`);
 
           const generateVideoResponse = await waitForOperation(operationName, model || "veo-3.0-generate-001");
           logger.debug(`Video generation completed for scene ${index + 1}`);
-          logger.debug(generateVideoResponse)
+          logger.debug(generateVideoResponse);
 
           if (generateVideoResponse.response.raiMediaFilteredReasons) {
             // Throw an error with the determined user-friendly message
@@ -94,7 +105,7 @@ export async function POST(req: Request): Promise<Response> {
           const gcsUri = generateVideoResponse.response.videos[0].gcsUri;
           url = gcsUri;
         }
-        logger.debug(`Video Generated! ${url}`)
+        logger.debug(`Video Generated! ${url}`);
         return url;
       });
 

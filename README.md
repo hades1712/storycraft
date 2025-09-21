@@ -66,11 +66,7 @@ storycraft/
 
 ## Deployment
 
-StoryCraft can be deployed to [Google Cloud Run](https://cloud.google.com/run/docs/quickstarts/frameworks/deploy-nextjs-service) for scalable, serverless hosting. The application includes a `Dockerfile` for containerization and is optimized for Cloud Run's execution environment. To deploy:
-
-1. Ensure you have the [Google Cloud CLI](https://cloud.google.com/sdk/docs/install) installed and configured
-2. Set up your Google Cloud project with the required APIs enabled (Vertex AI, Cloud Storage, Text-to-Speech)
-3. Configure environment variables for your AI model endpoints and storage buckets
-4. Deploy using the command: `gcloud run deploy --source .`
-
-The application will automatically scale based on demand and only incur costs when actively processing video generation requests.
+GCP部署参考：gcloud-deployment-guide.md
+本地部署参考：
+copy .env.template to .env.local（修改相应的）
+npm run dev

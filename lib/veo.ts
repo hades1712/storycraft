@@ -3,10 +3,16 @@ import { GoogleGenAI, Part } from '@google/genai';
 import logger from '@/app/logger';
 import { getRAIUserMessage } from './rai';
 
-const LOCATION = process.env.LOCATION
+// 为LOCATION设置默认值，与terraform保持一致
+const LOCATION = process.env.LOCATION || "us-central1"
 const PROJECT_ID = process.env.PROJECT_ID
 const MODEL = "veo-3.0-generate-001" //process.env.MODEL
-const GCS_VIDEOS_STORAGE_URI = process.env.GCS_VIDEOS_STORAGE_URI
+
+// 从环境变量获取统一的 GCS 存储桶名称
+const GCS_BUCKET_NAME = process.env.GCS_BUCKET_NAME || 'storycraft-videos';
+
+// 构建视频存储 URI（保持向后兼容）
+const GCS_VIDEOS_STORAGE_URI = `gs://${GCS_BUCKET_NAME}/videos/`;
 
 
 const ai = new GoogleGenAI({ vertexai: true, project: PROJECT_ID, location: LOCATION });
@@ -69,9 +75,18 @@ async function checkOperation(operationName: string, model: string = "veo-3.0-ge
 
 export async function waitForOperation(operationName: string, model: string = "veo-3.0-generate-001"): Promise<GenerateVideoResponse> {
   const checkInterval = 2000; // Interval for checking operation status (in milliseconds)
+  const maxWaitTime = 5 * 60 * 1000; // Maximum wait time: 5 minutes
+  const startTime = Date.now();
 
   const pollOperation = async (): Promise<GenerateVideoResponse> => {
-    logger.debug(`poll operation ${operationName}`)
+    // Check if we've exceeded the maximum wait time
+    const elapsedTime = Date.now() - startTime;
+    if (elapsedTime > maxWaitTime) {
+      logger.error(`Operation ${operationName} timed out after ${elapsedTime}ms`);
+      throw new Error('视频生成超时，请稍后重试。如果问题持续存在，请联系支持团队。');
+    }
+
+    logger.debug(`poll operation ${operationName} (elapsed: ${elapsedTime}ms)`);
     const generateVideoResponse = await checkOperation(operationName, model);
 
     if (generateVideoResponse.done) {
@@ -80,6 +95,7 @@ export async function waitForOperation(operationName: string, model: string = "v
         logger.error(`Operation failed with error: ${generateVideoResponse.error.message}`)
         throw new Error(getRAIUserMessage(generateVideoResponse.error.message));
       }
+      logger.info(`Operation ${operationName} completed successfully after ${elapsedTime}ms`);
       return generateVideoResponse;
     } else {
       await delay(checkInterval);
