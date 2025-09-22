@@ -9,12 +9,34 @@ set -e  # 遇到错误时退出
 echo "🚀 开始部署 StoryCraft 到 Cloud Run..."
 echo "🌐 模式：公开访问（所有用户都可以访问）"
 
+# 获取脚本所在目录的绝对路径
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# 获取项目根目录（脚本目录的上一级）
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+
+echo "📁 脚本目录: $SCRIPT_DIR"
+echo "📁 项目根目录: $PROJECT_ROOT"
+
+# 切换到项目根目录
+cd "$PROJECT_ROOT"
+echo "📂 当前工作目录: $(pwd)"
+
 # 检查必要文件是否存在
 if [ ! -f ".env.production" ]; then
     echo "❌ 错误：.env.production 文件不存在"
     echo "请先复制 .env.production.template 并配置相应的值"
+    echo "当前查找路径: $(pwd)/.env.production"
     exit 1
 fi
+
+# 检查 Dockerfile 是否存在
+if [ ! -f "Dockerfile" ]; then
+    echo "❌ 错误：Dockerfile 文件不存在"
+    echo "当前查找路径: $(pwd)/Dockerfile"
+    exit 1
+fi
+
+echo "✅ 必要文件检查通过"
 
 # 加载环境变量
 echo "📋 加载环境变量..."
@@ -61,8 +83,10 @@ if [ -n "$AUTH_TRUST_HOST" ]; then
 fi
 
 echo "🔨 开始部署到 Cloud Run..."
+echo "📦 构建源码路径: $(pwd)"
 
 # 部署到 Cloud Run（启用公开访问）
+# 注意：现在 --source=. 指向项目根目录，可以正确找到 Dockerfile
 gcloud run deploy storycraft \
   --source=. \
   --platform=managed \
